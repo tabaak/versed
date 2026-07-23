@@ -77,7 +77,7 @@ class AppTextField extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(8),
         ),
       ),
     );

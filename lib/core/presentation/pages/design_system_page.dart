@@ -48,7 +48,7 @@ class _DesignSystemPageState extends State<DesignSystemPage> {
                 height: 5,
                 decoration: BoxDecoration(
                   color: AppColors.textTertiary,
-                  borderRadius: BorderRadius.circular(500),
+                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
               const SizedBox(height: 24),

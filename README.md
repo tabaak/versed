@@ -4,16 +4,6 @@ A modern Flutter app for head-to-head outfit battles and curation. Built on Flut
 
 ---
 
-## 🚀 Key Features (MVP)
-
-- **1v1 Outfit Battles:** Head-to-head outfit card comparisons. Tapping an outfit records a vote and dynamically loads the next contender.
-- **Vote & Curation Metrics:** Real-time tracking of community engagement via **Votes Cast** and outfit performance via **Style Win-Rate (%)**.
-- **Photo Uploads:** Quick photo picker allowing users to upload their outfits directly into the battle arena.
-- **Dual Language Support (Localization):** Default language is **English**.
-- **One-Tap Google Auth:** Fast and secure social login using Google Authentication via Supabase OAuth.
-
----
-
 ## 🛠 Tech Stack
 
 * **Framework:** Flutter (iOS / Android)
@@ -51,31 +41,3 @@ lib/
 - **Analyze Project:** `flutter analyze`
 - **Run in Debug Mode:** `flutter run`
 - **Generate iOS Config (SPM):** `flutter build ios --config-only`
-
----
-
-## 🎨 Development Standards & Rules
-
-To maintain codebase cleanliness and prevent merge conflicts, follow these guidelines (detailed in `AGENTS.md`):
-
-### 1. Riverpod Without Code Generation
-* All providers are declared **manually** (`Provider`, `NotifierProvider`, `AsyncNotifierProvider`).
-* Code generators like `build_runner` or `@riverpod` are **strictly forbidden** to prevent merge conflicts in `.g.dart` files.
-
-### 2. Data Model Requirements
-Every data model must implement:
-- `copyWith` method for state immutability.
-- `operator ==` and `hashCode` overrides for value equality.
-- `toString()` for clean debug logging.
-- `static const ... empty` for predictable initial states.
-
-### 3. UI Guidelines
-* **Reusability:** Use shared widgets from `lib/core/widgets/` (e.g., `AppButton`, input fields, text placeholders).
-* **Clean Build Methods:** Avoid deeply nested widget trees. If a file exceeds 300 lines, extract sub-trees into standalone `ConsumerWidget` or `StatelessWidget` classes in `presentation/widgets/`.
-* **No Business Logic in UI:** Widgets only dispatch events to controllers. All calculations, vote validation, and data formatting must reside inside controllers or services.
-* **Modals:** Open all bottom sheets through `AppModal.showBottomSheet`.
-
-### 4. Navigation (GoRouter)
-* **Decentralized Routes:** Each screen defines its route as a static `route` getter inside its class file. The main router (`lib/core/router/app_router.dart`) imports and registers them.
-* **Named Navigation:** Use `context.goNamed(...)` over raw path strings.
-* **Auth Guards:** Access control is managed reactively at the `GoRouter` level, avoiding imperative checks inside screens.

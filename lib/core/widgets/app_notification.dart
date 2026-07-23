@@ -43,7 +43,7 @@ class AppNotification extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(color: AppColors.divider),
           boxShadow: [
             BoxShadow(

@@ -23,7 +23,7 @@ abstract final class AppModal {
             width: double.infinity,
             decoration: const BoxDecoration(
               color: AppColors.surface,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
             ),
             child: SafeArea(
               top: false,

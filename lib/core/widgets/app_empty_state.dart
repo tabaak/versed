@@ -33,7 +33,7 @@ class AppEmptyState extends StatelessWidget {
           padding: const EdgeInsets.all(32),
           decoration: BoxDecoration(
             color: AppColors.surface,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,

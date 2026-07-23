@@ -67,7 +67,7 @@ class AppCheckbox extends StatelessWidget {
         activeColor: AppColors.accent,
         checkColor: AppColors.onAccent,
         side: const BorderSide(color: AppColors.textSecondary),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
       ),
     );
   }

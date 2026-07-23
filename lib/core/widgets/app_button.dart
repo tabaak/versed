@@ -76,7 +76,7 @@ class _AppButtonState extends State<AppButton> {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: isPrimary ? AppColors.accent : AppColors.canvas,
-                borderRadius: BorderRadius.circular(500),
+                borderRadius: BorderRadius.circular(8),
                 border: isPrimary
                     ? null
                     : Border.all(

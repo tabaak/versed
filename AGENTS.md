@@ -315,3 +315,7 @@ final chatControllerProvider = AsyncNotifierProvider.autoDispose<ChatController,
 2. **Static Analysis:** Run `flutter analyze` and ensure zero errors/warnings.
 3. **No Generated Files:** Ensure there are no `.g.dart` or other generated files created.
 4. **Isolation:** Ensure new files reside strictly inside their designated feature directory in `lib/features/` or the shared directory in `lib/core/`.
+
+
+## 🎨 Design System
+Refer to `DESIGN.md` for all UI styling, colors, typography, haptics, and layout rules. Do not use generic Material colors or light mode. Also uipro skill is available to use in the root folder of the project.

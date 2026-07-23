@@ -1,7 +1,7 @@
 import 'package:flutter/cupertino.dart';
 
 import 'core/theme/app_colors.dart';
-import 'features/design_system/presentation/pages/design_system_page.dart';
+import 'core/presentation/pages/design_system_page.dart';
 
 void main() => runApp(const VersedApp());
 

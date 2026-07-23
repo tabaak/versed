@@ -25,22 +25,19 @@ A modern Flutter app for head-to-head outfit battles and curation. Built on Flut
 
 ## 📁 Project Architecture
 
-The project is structured into feature-isolated modules (`features/`) and a shared core (`core/`):
+The current scaffold keeps the design system and showcase in the shared `core/` module:
 
 lib/
 ├── core/                         # Shared app foundation
 │   ├── l10n/                     # Localization (AppLocalizations)
 │   ├── theme/                    # Design system (colors, typography)
 │   ├── services/                 # Global services (Supabase, Storage)
-│   └── widgets/                  # Shared UI components (AppButton, loaders)
-│
-└── features/                     # Feature modules
-    ├── auth/                     # Google Auth & session handling
-    ├── battle/                   # Head-to-head battle screen & voting logic
-    ├── onboarding/               # Welcome flow for first-time users
-    └── profile/                  # User profiles, outfit uploads, and stats
+│   ├── widgets/                  # Shared UI components (AppButton, loaders)
+│   └── presentation/             # Core pages and showcase sections
+│       ├── pages/
+│       └── widgets/
 
-### Feature Layering
+### Core Layering
 1. `models/` — Pure Dart models (manual `fromJson`/`toJson`, `copyWith`, `operator ==`, and `hashCode`).
 2. `services/` — Stateless Supabase queries and API calls.
 3. `controllers/` — `Notifier` / `AsyncNotifier` for managing screen state.

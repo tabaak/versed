@@ -1,18 +1,21 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/services/app_initializer.dart';
 import 'core/theme/app_colors.dart';
-import 'features/auth/presentation/pages/auth_page.dart';
+import 'features/auth/presentation/widgets/auth_gate.dart';
 
-void main() => runApp(const VersedApp());
-
-void _handleGoogleSignIn() {}
+Future<void> main() async {
+  await AppInitializer.init();
+  runApp(const ProviderScope(child: VersedApp()));
+}
 
 class VersedApp extends StatelessWidget {
   const VersedApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const CupertinoApp(
+    return CupertinoApp(
       title: 'VERSED',
       debugShowCheckedModeBanner: false,
       theme: CupertinoThemeData(
@@ -28,7 +31,13 @@ class VersedApp extends StatelessWidget {
           ),
         ),
       ),
-      home: AuthPage(onGoogleSignIn: _handleGoogleSignIn),
+      home: const AuthGate(),
+      onGenerateRoute: (settings) {
+        return CupertinoPageRoute<void>(
+          settings: settings,
+          builder: (_) => const AuthGate(),
+        );
+      },
     );
   }
 }

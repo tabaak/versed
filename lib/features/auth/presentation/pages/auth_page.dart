@@ -8,9 +8,10 @@ import '../widgets/outfit_matchup_hero.dart';
 import '../widgets/versed_wordmark.dart';
 
 class AuthPage extends StatelessWidget {
-  const AuthPage({required this.onGoogleSignIn, super.key});
+  const AuthPage({this.onGoogleSignIn, this.isLoading = false, super.key});
 
-  final VoidCallback onGoogleSignIn;
+  final VoidCallback? onGoogleSignIn;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +41,10 @@ class AuthPage extends StatelessWidget {
                       const SizedBox(height: 24),
                       const AuthIntro(),
                       const SizedBox(height: 24),
-                      GoogleSignInButton(onPressed: onGoogleSignIn),
+                      GoogleSignInButton(
+                        isLoading: isLoading,
+                        onPressed: onGoogleSignIn,
+                      ),
                       const SizedBox(height: 12),
                       const Text(
                         'By continuing, you agree to our Terms and '

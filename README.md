@@ -15,7 +15,7 @@ A modern Flutter app for head-to-head outfit battles and curation. Built on Flut
 
 ## 📁 Project Architecture
 
-The current scaffold keeps the design system and showcase in the shared `core/` module:
+The ideal scaffold keeps the design system and showcase in the shared `core/` module:
 
 lib/
 ├── core/                         # Shared app foundation

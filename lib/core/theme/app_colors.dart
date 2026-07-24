@@ -16,4 +16,8 @@ abstract final class AppColors {
   static const streak = Color(0xFFFFD60A);
   static const error = Color(0xFFFF453A);
   static const success = Color(0xFF30D158);
+
+  // Google Identity brand colors for the light Sign in with Google button.
+  static const googleButtonText = Color(0xFF1F1F1F);
+  static const googleButtonStroke = Color(0xFF747775);
 }

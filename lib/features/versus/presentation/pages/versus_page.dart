@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
@@ -16,24 +18,36 @@ class VersusPage extends StatefulWidget {
 class _VersusPageState extends State<VersusPage> {
   static const _matchups = [
     _VersusMatchup(
-      topAsset: 'assets/auth/outfit1.png',
-      bottomAsset: 'assets/auth/outfit2.png',
+      leftAsset: 'assets/auth/outfit1.png',
+      rightAsset: 'assets/auth/outfit2.png',
     ),
     _VersusMatchup(
-      topAsset: 'assets/auth/outfit3.jpg',
-      bottomAsset: 'assets/auth/outfit4.jpg',
+      leftAsset: 'assets/auth/outfit3.jpg',
+      rightAsset: 'assets/auth/outfit4.jpg',
     ),
     _VersusMatchup(
-      topAsset: 'assets/auth/outfit5.jpg',
-      bottomAsset: 'assets/auth/outfit6.jpg',
+      leftAsset: 'assets/auth/outfit5.jpg',
+      rightAsset: 'assets/auth/outfit6.jpg',
     ),
   ];
 
   static const _winnerRevealDuration = Duration(milliseconds: 900);
+  static const _doubleTapWindow = Duration(milliseconds: 350);
+  static const _highlightTimeout = Duration(milliseconds: 1500);
+  static const _burstEmojis = ['🔥', '✨', '⚡', '💯', '👀', '👏'];
+
+  final _boardKey = GlobalKey();
+  final _random = Random();
 
   Timer? _advanceTimer;
+  Timer? _highlightTimer;
   int _matchupIndex = 0;
   _VersusSide? _winner;
+  _VersusSide? _highlighted;
+  _VersusSide? _lastTapSide;
+  DateTime _lastTapTime = DateTime.fromMillisecondsSinceEpoch(0);
+  final List<_EmojiBurst> _bursts = [];
+  int _nextBurstId = 0;
   bool _imagesPrecached = false;
 
   @override
@@ -47,29 +61,75 @@ class _VersusPageState extends State<VersusPage> {
     _imagesPrecached = true;
 
     for (final matchup in _matchups) {
-      precacheImage(
-        ResizeImage(
-          AssetImage(matchup.topAsset),
-          width: 1000,
-          allowUpscaling: false,
-        ),
-        context,
-      );
-      precacheImage(
-        ResizeImage(
-          AssetImage(matchup.bottomAsset),
-          width: 1000,
-          allowUpscaling: false,
-        ),
-        context,
-      );
+      precacheImage(AssetImage(matchup.leftAsset), context);
+      precacheImage(AssetImage(matchup.rightAsset), context);
     }
+  }
+
+  void _handleTapDown(_VersusSide side, Offset globalPosition) {
+    if (_winner != null) return;
+
+    final now = DateTime.now();
+    final isDoubleTap =
+        _lastTapSide == side && now.difference(_lastTapTime) < _doubleTapWindow;
+    _lastTapSide = side;
+    _lastTapTime = now;
+
+    if (isDoubleTap) {
+      HapticFeedback.mediumImpact();
+      if (!MediaQuery.disableAnimationsOf(context)) {
+        _spawnBurst(globalPosition);
+      }
+      _pickWinner(side);
+    } else {
+      HapticFeedback.selectionClick();
+      _highlightTimer?.cancel();
+      _highlightTimer = Timer(_highlightTimeout, () {
+        if (!mounted) return;
+        setState(() => _highlighted = null);
+      });
+      setState(() => _highlighted = side);
+    }
+  }
+
+  void _spawnBurst(Offset globalPosition) {
+    final board = _boardKey.currentContext?.findRenderObject() as RenderBox?;
+    if (board == null) return;
+
+    final origin = board.globalToLocal(globalPosition);
+    final emoji = _burstEmojis[_random.nextInt(_burstEmojis.length)];
+
+    setState(() {
+      for (var i = 0; i < 3; i++) {
+        // Random launch angle within an upward fan; gravity does the rest.
+        final angle = -pi / 2 + (_random.nextDouble() - 0.5) * pi * 0.9;
+        final speed = 120 + _random.nextDouble() * 120;
+        _bursts.add(
+          _EmojiBurst(
+            id: _nextBurstId++,
+            position: origin,
+            emoji: emoji,
+            velocity: Offset(cos(angle), sin(angle)) * speed,
+            tilt: (_random.nextDouble() - 0.5) * 1.2,
+          ),
+        );
+      }
+    });
+  }
+
+  void _removeBurst(int id) {
+    if (!mounted) return;
+    setState(() => _bursts.removeWhere((burst) => burst.id == id));
   }
 
   void _pickWinner(_VersusSide side) {
     if (_winner != null) return;
 
-    setState(() => _winner = side);
+    _highlightTimer?.cancel();
+    setState(() {
+      _winner = side;
+      _highlighted = null;
+    });
 
     final revealDelay = MediaQuery.disableAnimationsOf(context)
         ? const Duration(milliseconds: 300)
@@ -80,6 +140,7 @@ class _VersusPageState extends State<VersusPage> {
       setState(() {
         _matchupIndex = (_matchupIndex + 1) % _matchups.length;
         _winner = null;
+        _lastTapSide = null;
       });
     });
   }
@@ -87,6 +148,7 @@ class _VersusPageState extends State<VersusPage> {
   @override
   void dispose() {
     _advanceTimer?.cancel();
+    _highlightTimer?.cancel();
     super.dispose();
   }
 
@@ -106,19 +168,34 @@ class _VersusPageState extends State<VersusPage> {
           child: Column(
             children: [
               Expanded(
-                child: AnimatedSwitcher(
-                  duration: animationsDisabled
-                      ? Duration.zero
-                      : const Duration(milliseconds: 350),
-                  switchInCurve: Curves.easeOut,
-                  switchOutCurve: Curves.easeIn,
-                  child: _MatchupBoard(
-                    key: ValueKey(_matchupIndex),
-                    matchup: matchup,
-                    winner: _winner,
-                    animationsDisabled: animationsDisabled,
-                    onPickWinner: _pickWinner,
-                  ),
+                child: Stack(
+                  key: _boardKey,
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned.fill(
+                      child: AnimatedSwitcher(
+                        duration: animationsDisabled
+                            ? Duration.zero
+                            : const Duration(milliseconds: 350),
+                        switchInCurve: Curves.easeOut,
+                        switchOutCurve: Curves.easeIn,
+                        child: _MatchupBoard(
+                          key: ValueKey(_matchupIndex),
+                          matchup: matchup,
+                          winner: _winner,
+                          highlighted: _highlighted,
+                          animationsDisabled: animationsDisabled,
+                          onTapDown: _handleTapDown,
+                        ),
+                      ),
+                    ),
+                    for (final burst in _bursts)
+                      _EmojiBurstParticle(
+                        key: ValueKey(burst.id),
+                        burst: burst,
+                        onCompleted: () => _removeBurst(burst.id),
+                      ),
+                  ],
                 ),
               ),
               const SizedBox(height: 12),
@@ -140,15 +217,17 @@ class _MatchupBoard extends StatelessWidget {
   const _MatchupBoard({
     required this.matchup,
     required this.winner,
+    required this.highlighted,
     required this.animationsDisabled,
-    required this.onPickWinner,
+    required this.onTapDown,
     super.key,
   });
 
   final _VersusMatchup matchup;
   final _VersusSide? winner;
+  final _VersusSide? highlighted;
   final bool animationsDisabled;
-  final ValueChanged<_VersusSide> onPickWinner;
+  final void Function(_VersusSide side, Offset globalPosition) onTapDown;
 
   @override
   Widget build(BuildContext context) {
@@ -156,52 +235,96 @@ class _MatchupBoard extends StatelessWidget {
         ? Duration.zero
         : const Duration(milliseconds: 450);
 
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        Column(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Cards sit diagonally (bottom-left vs top-right) and overlap a
+        // little vertically, so each one can be far larger than in a
+        // side-by-side split.
+        const aspectRatio = 4 / 5;
+        const overlapFraction = 0.06;
+
+        final cardWidth = min(
+          0.74 * constraints.maxWidth,
+          constraints.maxHeight * aspectRatio / (2 - overlapFraction),
+        );
+        final cardHeight = cardWidth / aspectRatio;
+        final pairHeight = (2 - overlapFraction) * cardHeight;
+        final topInset = (constraints.maxHeight - pairHeight) / 2;
+
+        final leftCard = Positioned(
+          left: 0,
+          top: topInset + (1 - overlapFraction) * cardHeight,
+          width: cardWidth,
+          height: cardHeight,
+          child: _VersusContender(
+            assetPath: matchup.leftAsset,
+            isWinner: winner == _VersusSide.left,
+            isLoser: winner == _VersusSide.right,
+            isHighlighted: highlighted == _VersusSide.left,
+            duration: duration,
+            semanticLabel: 'Bottom left outfit',
+            onTapDown: (globalPosition) =>
+                onTapDown(_VersusSide.left, globalPosition),
+          ),
+        );
+        final rightCard = Positioned(
+          right: 0,
+          top: topInset,
+          width: cardWidth,
+          height: cardHeight,
+          child: _VersusContender(
+            assetPath: matchup.rightAsset,
+            isWinner: winner == _VersusSide.right,
+            isLoser: winner == _VersusSide.left,
+            isHighlighted: highlighted == _VersusSide.right,
+            duration: duration,
+            semanticLabel: 'Top right outfit',
+            onTapDown: (globalPosition) =>
+                onTapDown(_VersusSide.right, globalPosition),
+          ),
+        );
+
+        // The active card (winner, or highlighted) renders on top.
+        final leftOnTop =
+            winner == _VersusSide.left ||
+            (winner == null && highlighted == _VersusSide.left);
+
+        return Stack(
+          clipBehavior: Clip.none,
           children: [
-            Expanded(
-              child: _VersusContender(
-                assetPath: matchup.topAsset,
-                isWinner: winner == _VersusSide.top,
-                isLoser: winner == _VersusSide.bottom,
-                duration: duration,
-                semanticLabel: 'Top outfit',
-                onDoubleTap: () => onPickWinner(_VersusSide.top),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: _VersusContender(
-                assetPath: matchup.bottomAsset,
-                isWinner: winner == _VersusSide.bottom,
-                isLoser: winner == _VersusSide.top,
-                duration: duration,
-                semanticLabel: 'Bottom outfit',
-                onDoubleTap: () => onPickWinner(_VersusSide.bottom),
+            if (leftOnTop) ...[
+              rightCard,
+              leftCard,
+            ] else ...[
+              leftCard,
+              rightCard,
+            ],
+            // The badge sits in the free column right of the bottom card,
+            // level with the seam between the two cards.
+            Positioned(
+              left: cardWidth - 44 + (constraints.maxWidth - cardWidth) / 2 + 2,
+              top: topInset + pairHeight / 2 - 16 + 31,
+              child: AnimatedOpacity(
+                duration: animationsDisabled
+                    ? Duration.zero
+                    : const Duration(milliseconds: 150),
+                opacity: winner == null ? 1 : 0,
+                child: Container(
+                  width: 44,
+                  height: 32,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppColors.accent,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: AppColors.canvas, width: 2),
+                  ),
+                  child: const Text('VS', style: AppTextStyles.matchupDivider),
+                ),
               ),
             ),
           ],
-        ),
-        AnimatedOpacity(
-          duration: animationsDisabled
-              ? Duration.zero
-              : const Duration(milliseconds: 150),
-          opacity: winner == null ? 1 : 0,
-          child: Container(
-            width: 44,
-            height: 32,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: AppColors.accent,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: AppColors.canvas, width: 2),
-            ),
-            child: const Text('VS', style: AppTextStyles.matchupDivider),
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 }
@@ -211,20 +334,35 @@ class _VersusContender extends StatelessWidget {
     required this.assetPath,
     required this.isWinner,
     required this.isLoser,
+    required this.isHighlighted,
     required this.duration,
     required this.semanticLabel,
-    required this.onDoubleTap,
+    required this.onTapDown,
   });
 
   final String assetPath;
   final bool isWinner;
   final bool isLoser;
+  final bool isHighlighted;
   final Duration duration;
   final String semanticLabel;
-  final VoidCallback onDoubleTap;
+  final ValueChanged<Offset> onTapDown;
 
   @override
   Widget build(BuildContext context) {
+    final scale = isWinner
+        ? 1.03
+        : isLoser
+        ? 0.92
+        : isHighlighted
+        ? 1.02
+        : 1.0;
+    final borderColor = isWinner
+        ? AppColors.accent
+        : isHighlighted
+        ? AppColors.textSecondary
+        : AppColors.divider;
+
     return Semantics(
       button: true,
       label: isWinner
@@ -232,33 +370,26 @@ class _VersusContender extends StatelessWidget {
           : '$semanticLabel, double-tap to pick as winner',
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onDoubleTap: onDoubleTap,
+        onTapDown: (details) => onTapDown(details.globalPosition),
         child: AnimatedScale(
           duration: duration,
           curve: Curves.easeOutBack,
-          scale: isWinner
-              ? 1.05
-              : isLoser
-              ? 0.92
-              : 1,
+          scale: scale,
           child: AnimatedOpacity(
             duration: duration,
             curve: Curves.easeOut,
-            opacity: isLoser ? 0.35 : 1,
+            opacity: isLoser ? 0.55 : 1,
             child: AnimatedContainer(
               duration: duration,
               curve: Curves.easeOut,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: isWinner ? AppColors.accent : AppColors.divider,
-                  width: isWinner ? 3 : 1,
-                ),
+                border: Border.all(color: borderColor, width: isWinner ? 2 : 1),
                 boxShadow: isWinner
                     ? [
                         BoxShadow(
-                          color: AppColors.accent.withValues(alpha: 0.25),
-                          blurRadius: 24,
+                          color: AppColors.accent.withValues(alpha: 0.15),
+                          blurRadius: 16,
                         ),
                       ]
                     : const [],
@@ -267,11 +398,7 @@ class _VersusContender extends StatelessWidget {
                 borderRadius: BorderRadius.circular(7),
                 child: ExcludeSemantics(
                   child: Image(
-                    image: ResizeImage(
-                      AssetImage(assetPath),
-                      width: 1000,
-                      allowUpscaling: false,
-                    ),
+                    image: AssetImage(assetPath),
                     fit: BoxFit.cover,
                     width: double.infinity,
                     height: double.infinity,
@@ -287,11 +414,81 @@ class _VersusContender extends StatelessWidget {
   }
 }
 
-enum _VersusSide { top, bottom }
+class _EmojiBurstParticle extends StatelessWidget {
+  const _EmojiBurstParticle({
+    required this.burst,
+    required this.onCompleted,
+    super.key,
+  });
+
+  final _EmojiBurst burst;
+  final VoidCallback onCompleted;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: burst.position.dx - 12,
+      top: burst.position.dy - 12,
+      child: IgnorePointer(
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0, end: 1),
+          duration: const Duration(milliseconds: 900),
+          onEnd: onCompleted,
+          builder: (context, progress, child) {
+            // Projectile motion: launch along the burst velocity, then fall.
+            const gravity = 560.0;
+            final t = progress * 0.9;
+            final offset = Offset(
+              burst.velocity.dx * t,
+              burst.velocity.dy * t + 0.5 * gravity * t * t,
+            );
+            final fade = progress < 0.6 ? 1.0 : 1 - (progress - 0.6) / 0.4;
+
+            return Transform.translate(
+              offset: offset,
+              child: Transform.rotate(
+                angle: burst.tilt * progress * 2,
+                child: Opacity(
+                  opacity: fade,
+                  child: Transform.scale(
+                    scale: 0.7 + 0.4 * progress,
+                    child: child,
+                  ),
+                ),
+              ),
+            );
+          },
+          child: Text(
+            burst.emoji,
+            style: const TextStyle(fontSize: 24, height: 1),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+enum _VersusSide { left, right }
 
 class _VersusMatchup {
-  const _VersusMatchup({required this.topAsset, required this.bottomAsset});
+  const _VersusMatchup({required this.leftAsset, required this.rightAsset});
 
-  final String topAsset;
-  final String bottomAsset;
+  final String leftAsset;
+  final String rightAsset;
+}
+
+class _EmojiBurst {
+  const _EmojiBurst({
+    required this.id,
+    required this.position,
+    required this.emoji,
+    required this.velocity,
+    required this.tilt,
+  });
+
+  final int id;
+  final Offset position;
+  final String emoji;
+  final Offset velocity;
+  final double tilt;
 }

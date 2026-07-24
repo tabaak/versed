@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/utils/date_formats.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../auth/models/auth_model.dart';
 import '../../models/profile_model.dart';
@@ -16,10 +17,15 @@ class ProfileHeader extends StatelessWidget {
   });
 
   final AuthModel? user;
-  final ProfileModel profile;
+  final Profile profile;
   final VoidCallback onEditProfile;
 
-  String get _name => user?.displayName ?? user?.email ?? 'Anonymous';
+  /// The profile row wins over the auth metadata: it is what the rest of the
+  /// app reads, and it is the copy the user can eventually edit.
+  String get _name =>
+      profile.displayName ?? user?.displayName ?? user?.email ?? 'Anonymous';
+
+  String? get _avatarUrl => profile.avatarUrl ?? user?.avatarUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +34,7 @@ class ProfileHeader extends StatelessWidget {
       children: [
         Row(
           children: [
-            _Avatar(url: user?.avatarUrl, name: _name),
+            _Avatar(url: _avatarUrl, name: _name),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -42,14 +48,14 @@ class ProfileHeader extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    profile.handle,
+                    profile.handle ?? 'No handle yet',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: AppTextStyles.secondaryBody,
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    profile.joinedLabel,
+                    joinedLabel(profile.createdAt),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: AppTextStyles.meta,

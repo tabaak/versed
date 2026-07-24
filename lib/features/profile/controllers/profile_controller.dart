@@ -1,51 +1,87 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/utils/error_messages.dart';
+import '../../../core/utils/validators.dart';
+import '../../auth/controllers/auth_controller.dart';
 import '../models/profile_model.dart';
+import '../services/profile_service.dart';
 
-/// Placeholder profile data. Swap this provider's body for a Supabase query
-/// once the fits and battles tables exist; the UI reads it as-is.
-final profileProvider = Provider<ProfileModel>((ref) {
-  return const ProfileModel(
-    handle: '@fitcheck',
-    joinedLabel: 'Joined July 2026',
-    stats: ProfileStats(wins: 128, losses: 74, currentStreak: 6),
-    fits: [
-      ProfileFit(
-        id: 'fit-1',
-        asset: 'assets/auth/outfit1.png',
-        wins: 42,
-        battles: 61,
-      ),
-      ProfileFit(
-        id: 'fit-2',
-        asset: 'assets/auth/outfit2.png',
-        wins: 31,
-        battles: 55,
-      ),
-      ProfileFit(
-        id: 'fit-3',
-        asset: 'assets/auth/outfit3.jpg',
-        wins: 27,
-        battles: 38,
-      ),
-      ProfileFit(
-        id: 'fit-4',
-        asset: 'assets/auth/outfit4.jpg',
-        wins: 18,
-        battles: 29,
-      ),
-      ProfileFit(
-        id: 'fit-5',
-        asset: 'assets/auth/outfit5.jpg',
-        wins: 7,
-        battles: 12,
-      ),
-      ProfileFit(
-        id: 'fit-6',
-        asset: 'assets/auth/outfit6.jpg',
-        wins: 3,
-        battles: 7,
-      ),
-    ],
-  );
-});
+/// The signed-in user's profile row and battle record. Null while signed out.
+class ProfileController extends AsyncNotifier<ProfileSummary?> {
+  @override
+  Future<ProfileSummary?> build() async {
+    final user = ref.watch(authControllerProvider).value;
+    if (user == null) return null;
+
+    return _load(user.id);
+  }
+
+  /// Claims a handle. Returns null on success, or the reason it failed.
+  Future<String?> chooseUsername(String username) async {
+    final normalized = username.trim().toLowerCase();
+
+    final invalid = usernameError(normalized);
+    if (invalid != null) return invalid;
+
+    final user = ref.read(authControllerProvider).value;
+    if (user == null) return 'Sign in again to continue.';
+
+    final summary = state.value;
+
+    try {
+      final profile = await ref
+          .read(profileServiceProvider)
+          .setUsername(id: user.id, username: normalized);
+
+      state = AsyncData(
+        summary == null
+            ? ProfileSummary(profile: profile, stats: ProfileStats.empty)
+            : summary.copyWith(profile: profile),
+      );
+      return null;
+    } on PostgrestException catch (error) {
+      // The unique index rejected it between the availability check and here.
+      if (error.code == '23505') return 'That handle is taken.';
+      return describeError(error);
+    } catch (error) {
+      return describeError(error);
+    }
+  }
+
+  Future<bool> isUsernameAvailable(String username) {
+    return ref
+        .read(profileServiceProvider)
+        .isUsernameAvailable(username.trim().toLowerCase());
+  }
+
+  Future<void> refresh() async {
+    final user = ref.read(authControllerProvider).value;
+    if (user == null) {
+      state = const AsyncData(null);
+      return;
+    }
+
+    state = await AsyncValue.guard(() => _load(user.id));
+  }
+
+  Future<ProfileSummary> _load(String userId) async {
+    final service = ref.read(profileServiceProvider);
+    final results = await Future.wait([
+      service.fetchProfile(userId),
+      service.fetchStats(userId),
+    ]);
+
+    return ProfileSummary(
+      profile: results[0] as Profile,
+      stats: results[1] as ProfileStats,
+    );
+  }
+}
+
+final profileControllerProvider =
+    AsyncNotifierProvider<ProfileController, ProfileSummary?>(
+      ProfileController.new,
+    );

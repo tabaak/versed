@@ -10,7 +10,8 @@
 create table if not exists public.fits (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null references public.profiles(id) on delete cascade,
-  -- Storage object path inside the public `fits` bucket: "<owner_id>/<fit_id>".
+  -- Storage object path inside the public `fits` bucket, always prefixed with
+  -- the owner's uuid: "<owner_id>/<unique-file-name>".
   image_path text not null,
   wins integer not null default 0 check (wins >= 0),
   losses integer not null default 0 check (losses >= 0),

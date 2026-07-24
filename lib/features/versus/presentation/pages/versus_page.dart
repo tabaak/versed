@@ -3,35 +3,30 @@ import 'dart:math';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../../core/theme/app_colors.dart';
+import '../../../../core/services/storage_service.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/utils/error_messages.dart';
+import '../../../../core/widgets/app_empty_state.dart';
+import '../../../../core/widgets/app_modal.dart';
+import '../../../../core/widgets/app_notification.dart';
+import '../../../fits/models/fit.dart';
+import '../../controllers/versus_controller.dart';
+import '../../models/matchup.dart';
+import '../widgets/emoji_burst.dart';
+import '../widgets/matchup_board.dart';
 
 /// Main matchup screen: two outfits battle, double-tap picks the winner.
-class VersusPage extends StatefulWidget {
+class VersusPage extends ConsumerStatefulWidget {
   const VersusPage({super.key});
 
   @override
-  State<VersusPage> createState() => _VersusPageState();
+  ConsumerState<VersusPage> createState() => _VersusPageState();
 }
 
-class _VersusPageState extends State<VersusPage> {
-  static const _matchups = [
-    _VersusMatchup(
-      leftAsset: 'assets/auth/outfit1.png',
-      rightAsset: 'assets/auth/outfit2.png',
-    ),
-    _VersusMatchup(
-      leftAsset: 'assets/auth/outfit3.jpg',
-      rightAsset: 'assets/auth/outfit4.jpg',
-    ),
-    _VersusMatchup(
-      leftAsset: 'assets/auth/outfit5.jpg',
-      rightAsset: 'assets/auth/outfit6.jpg',
-    ),
-  ];
-
+class _VersusPageState extends ConsumerState<VersusPage> {
   static const _winnerRevealDuration = Duration(milliseconds: 900);
   static const _doubleTapWindow = Duration(milliseconds: 350);
   static const _highlightTimeout = Duration(milliseconds: 1500);
@@ -43,15 +38,17 @@ class _VersusPageState extends State<VersusPage> {
 
   Timer? _advanceTimer;
   Timer? _highlightTimer;
-  int _matchupIndex = 0;
-  _VersusSide? _winner;
-  _VersusSide? _highlighted;
-  _VersusSide? _lastTapSide;
+  VersusSide? _winner;
+  VersusSide? _highlighted;
+  VersusSide? _lastTapSide;
   DateTime _lastTapTime = DateTime.fromMillisecondsSinceEpoch(0);
-  final List<_EmojiBurst> _bursts = [];
+  final List<EmojiBurst> _bursts = [];
   int _nextBurstId = 0;
-  bool _imagesPrecached = false;
   bool _showHint = false;
+
+  /// The matchup whose images are already warmed, so the queue is only
+  /// precached once per pair.
+  String? _precachedPairKey;
 
   @override
   void initState() {
@@ -75,23 +72,19 @@ class _VersusPageState extends State<VersusPage> {
     );
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _precacheOutfits();
-  }
+  /// Warms the queued matchup's images while the user is still deciding, so
+  /// the next pair does not fade in half-loaded.
+  void _precacheUpcoming(Matchup? upcoming) {
+    if (upcoming == null || upcoming.pairKey == _precachedPairKey) return;
+    _precachedPairKey = upcoming.pairKey;
 
-  void _precacheOutfits() {
-    if (_imagesPrecached) return;
-    _imagesPrecached = true;
-
-    for (final matchup in _matchups) {
-      precacheImage(AssetImage(matchup.leftAsset), context);
-      precacheImage(AssetImage(matchup.rightAsset), context);
+    final storage = ref.read(storageServiceProvider);
+    for (final fit in [upcoming.left, upcoming.right]) {
+      precacheImage(NetworkImage(storage.fitImageUrl(fit.imagePath)), context);
     }
   }
 
-  void _handleTapDown(_VersusSide side, Offset globalPosition) {
+  void _handleTapDown(VersusSide side, Offset globalPosition) {
     if (_winner != null) return;
 
     final now = DateTime.now();
@@ -130,7 +123,7 @@ class _VersusPageState extends State<VersusPage> {
         final angle = -pi / 2 + (_random.nextDouble() - 0.5) * pi * 0.9;
         final speed = 120 + _random.nextDouble() * 120;
         _bursts.add(
-          _EmojiBurst(
+          EmojiBurst(
             id: _nextBurstId++,
             position: origin,
             emoji: emoji,
@@ -147,8 +140,11 @@ class _VersusPageState extends State<VersusPage> {
     setState(() => _bursts.removeWhere((burst) => burst.id == id));
   }
 
-  void _pickWinner(_VersusSide side) {
+  Future<void> _pickWinner(VersusSide side) async {
     if (_winner != null) return;
+
+    final matchup = ref.read(versusControllerProvider).value?.current;
+    if (matchup == null) return;
 
     _dismissHint();
     _highlightTimer?.cancel();
@@ -157,18 +153,66 @@ class _VersusPageState extends State<VersusPage> {
       _highlighted = null;
     });
 
+    // The reveal animation runs while the vote is in flight; the result of a
+    // 1v1 tap should never wait on the network.
     final revealDelay = MediaQuery.disableAnimationsOf(context)
         ? const Duration(milliseconds: 300)
         : _winnerRevealDuration;
+    _advanceTimer = Timer(revealDelay, _advance);
 
-    _advanceTimer = Timer(revealDelay, () {
-      if (!mounted) return;
-      setState(() {
-        _matchupIndex = (_matchupIndex + 1) % _matchups.length;
-        _winner = null;
-        _lastTapSide = null;
-      });
+    final failure = await ref
+        .read(versusControllerProvider.notifier)
+        .submitVote(
+          winnerId: matchup.fitOn(side).id,
+          loserId: matchup.opponentOf(side).id,
+        );
+
+    if (!mounted || failure == null) return;
+    AppToast.error(context: context, message: failure);
+  }
+
+  void _advance() {
+    if (!mounted) return;
+    setState(() {
+      _winner = null;
+      _lastTapSide = null;
     });
+    ref.read(versusControllerProvider.notifier).advance();
+  }
+
+  Future<void> _reportFit(VersusSide side) async {
+    final matchup = ref.read(versusControllerProvider).value?.current;
+    if (matchup == null) return;
+
+    final fit = matchup.fitOn(side);
+    final handle = fit.ownerHandle;
+
+    final reason = await AppModal.showActionSheet<FitReportReason>(
+      context: context,
+      title: handle == null ? 'Report this fit' : "Report $handle's fit",
+      message: 'Reported fits leave the arena once enough people agree.',
+      actions: [
+        for (final reason in FitReportReason.values)
+          CupertinoActionSheetAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.of(context).pop(reason),
+            child: Text(reason.label),
+          ),
+      ],
+    );
+
+    if (reason == null || !mounted) return;
+
+    final failure = await ref
+        .read(versusControllerProvider.notifier)
+        .reportFit(fitId: fit.id, reason: reason);
+
+    if (!mounted) return;
+    if (failure == null) {
+      AppToast.success(context: context, message: 'Reported. Thanks.');
+    } else {
+      AppToast.error(context: context, message: failure);
+    }
   }
 
   @override
@@ -180,8 +224,11 @@ class _VersusPageState extends State<VersusPage> {
 
   @override
   Widget build(BuildContext context) {
-    final matchup = _matchups[_matchupIndex];
-    final animationsDisabled = MediaQuery.disableAnimationsOf(context);
+    ref.listen(versusControllerProvider, (previous, next) {
+      _precacheUpcoming(next.value?.upcoming);
+    });
+
+    final versusState = ref.watch(versusControllerProvider);
 
     return CupertinoPageScaffold(
       navigationBar: const CupertinoNavigationBar(
@@ -191,47 +238,32 @@ class _VersusPageState extends State<VersusPage> {
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: Column(
-            children: [
-              Expanded(
-                child: Stack(
-                  key: _boardKey,
-                  clipBehavior: Clip.none,
-                  children: [
-                    Positioned.fill(
-                      child: AnimatedSwitcher(
-                        duration: animationsDisabled
-                            ? Duration.zero
-                            : const Duration(milliseconds: 350),
-                        switchInCurve: Curves.easeOut,
-                        switchOutCurve: Curves.easeIn,
-                        child: _MatchupBoard(
-                          key: ValueKey(_matchupIndex),
-                          matchup: matchup,
-                          winner: _winner,
-                          highlighted: _highlighted,
-                          animationsDisabled: animationsDisabled,
-                          onTapDown: _handleTapDown,
-                        ),
-                      ),
-                    ),
-                    for (final burst in _bursts)
-                      _EmojiBurstParticle(
-                        key: ValueKey(burst.id),
-                        burst: burst,
-                        onCompleted: () => _removeBurst(burst.id),
-                      ),
-                  ],
-                ),
-              ),
-              if (_showHint) ...[
-                const SizedBox(height: 12),
-                const Text(
-                  'Double-tap the outfit that wins',
-                  style: AppTextStyles.meta,
-                ),
-              ],
-            ],
+          child: versusState.when(
+            loading: () => const Center(child: CupertinoActivityIndicator()),
+            error: (error, _) => AppEmptyState(
+              icon: CupertinoIcons.exclamationmark_triangle,
+              title: 'The arena is out of reach',
+              message: describeError(error),
+              actionLabel: 'Try again',
+              onAction: () =>
+                  ref.read(versusControllerProvider.notifier).reload(),
+            ),
+            data: (state) {
+              final matchup = state.current;
+              if (matchup == null) return const _ExhaustedArena();
+
+              return _Arena(
+                boardKey: _boardKey,
+                matchup: matchup,
+                winner: _winner,
+                highlighted: _highlighted,
+                bursts: _bursts,
+                showHint: _showHint,
+                onTapDown: _handleTapDown,
+                onLongPress: _reportFit,
+                onBurstCompleted: _removeBurst,
+              );
+            },
           ),
         ),
       ),
@@ -239,283 +271,94 @@ class _VersusPageState extends State<VersusPage> {
   }
 }
 
-class _MatchupBoard extends StatelessWidget {
-  const _MatchupBoard({
+/// The board plus the emoji bursts layered over it and the first-run hint.
+class _Arena extends StatelessWidget {
+  const _Arena({
+    required this.boardKey,
     required this.matchup,
     required this.winner,
     required this.highlighted,
-    required this.animationsDisabled,
+    required this.bursts,
+    required this.showHint,
     required this.onTapDown,
-    super.key,
+    required this.onLongPress,
+    required this.onBurstCompleted,
   });
 
-  final _VersusMatchup matchup;
-  final _VersusSide? winner;
-  final _VersusSide? highlighted;
-  final bool animationsDisabled;
-  final void Function(_VersusSide side, Offset globalPosition) onTapDown;
+  final GlobalKey boardKey;
+  final Matchup matchup;
+  final VersusSide? winner;
+  final VersusSide? highlighted;
+  final List<EmojiBurst> bursts;
+  final bool showHint;
+  final void Function(VersusSide side, Offset globalPosition) onTapDown;
+  final ValueChanged<VersusSide> onLongPress;
+  final ValueChanged<int> onBurstCompleted;
 
   @override
   Widget build(BuildContext context) {
-    final duration = animationsDisabled
-        ? Duration.zero
-        : const Duration(milliseconds: 450);
+    final animationsDisabled = MediaQuery.disableAnimationsOf(context);
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Cards sit diagonally (bottom-left vs top-right) and overlap a
-        // little vertically, so each one can be far larger than in a
-        // side-by-side split.
-        const aspectRatio = 4 / 5;
-        const overlapFraction = 0.06;
-
-        final cardWidth = min(
-          0.72 * constraints.maxWidth,
-          constraints.maxHeight * aspectRatio / (2 - overlapFraction),
-        );
-        final cardHeight = cardWidth / aspectRatio;
-        final pairHeight = (2 - overlapFraction) * cardHeight;
-        // Anchor the pair near the top; leftover space stays at the bottom.
-        final topInset = min((constraints.maxHeight - pairHeight) / 2, 12.0);
-
-        final leftCard = Positioned(
-          left: 0,
-          top: topInset + (1 - overlapFraction) * cardHeight,
-          width: cardWidth,
-          height: cardHeight,
-          child: _VersusContender(
-            assetPath: matchup.leftAsset,
-            isWinner: winner == _VersusSide.left,
-            isLoser: winner == _VersusSide.right,
-            isHighlighted: highlighted == _VersusSide.left,
-            duration: duration,
-            semanticLabel: 'Bottom left outfit',
-            onTapDown: (globalPosition) =>
-                onTapDown(_VersusSide.left, globalPosition),
-          ),
-        );
-        final rightCard = Positioned(
-          right: 0,
-          top: topInset,
-          width: cardWidth,
-          height: cardHeight,
-          child: _VersusContender(
-            assetPath: matchup.rightAsset,
-            isWinner: winner == _VersusSide.right,
-            isLoser: winner == _VersusSide.left,
-            isHighlighted: highlighted == _VersusSide.right,
-            duration: duration,
-            semanticLabel: 'Top right outfit',
-            onTapDown: (globalPosition) =>
-                onTapDown(_VersusSide.right, globalPosition),
-          ),
-        );
-
-        // The active card (winner, or highlighted) renders on top.
-        final leftOnTop =
-            winner == _VersusSide.left ||
-            (winner == null && highlighted == _VersusSide.left);
-
-        return Stack(
-          clipBehavior: Clip.none,
-          children: [
-            if (leftOnTop) ...[
-              rightCard,
-              leftCard,
-            ] else ...[
-              leftCard,
-              rightCard,
+    return Column(
+      children: [
+        Expanded(
+          child: Stack(
+            key: boardKey,
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: AnimatedSwitcher(
+                  duration: animationsDisabled
+                      ? Duration.zero
+                      : const Duration(milliseconds: 350),
+                  switchInCurve: Curves.easeOut,
+                  switchOutCurve: Curves.easeIn,
+                  child: MatchupBoard(
+                    key: ValueKey(matchup.pairKey),
+                    matchup: matchup,
+                    winner: winner,
+                    highlighted: highlighted,
+                    animationsDisabled: animationsDisabled,
+                    onTapDown: onTapDown,
+                    onLongPress: onLongPress,
+                  ),
+                ),
+              ),
+              for (final burst in bursts)
+                EmojiBurstParticle(
+                  key: ValueKey(burst.id),
+                  burst: burst,
+                  onCompleted: () => onBurstCompleted(burst.id),
+                ),
             ],
-            // The badge sits in the free column right of the bottom card,
-            // level with the seam between the two cards.
-            Positioned(
-              left: cardWidth - 44 + (constraints.maxWidth - cardWidth) / 2 + 2,
-              top: topInset + pairHeight / 2 - 16 + 31,
-              child: AnimatedOpacity(
-                duration: animationsDisabled
-                    ? Duration.zero
-                    : const Duration(milliseconds: 150),
-                opacity: winner == null ? 1 : 0,
-                child: Container(
-                  width: 44,
-                  height: 32,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.accent,
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: AppColors.canvas, width: 2),
-                  ),
-                  child: const Text('VS', style: AppTextStyles.matchupDivider),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _VersusContender extends StatelessWidget {
-  const _VersusContender({
-    required this.assetPath,
-    required this.isWinner,
-    required this.isLoser,
-    required this.isHighlighted,
-    required this.duration,
-    required this.semanticLabel,
-    required this.onTapDown,
-  });
-
-  final String assetPath;
-  final bool isWinner;
-  final bool isLoser;
-  final bool isHighlighted;
-  final Duration duration;
-  final String semanticLabel;
-  final ValueChanged<Offset> onTapDown;
-
-  @override
-  Widget build(BuildContext context) {
-    final scale = isWinner
-        ? 1.03
-        : isLoser
-        ? 0.92
-        : isHighlighted
-        ? 1.02
-        : 1.0;
-    final borderColor = isWinner
-        ? AppColors.accent
-        : isHighlighted
-        ? AppColors.textSecondary
-        : AppColors.divider;
-
-    return Semantics(
-      button: true,
-      label: isWinner
-          ? '$semanticLabel, winner'
-          : '$semanticLabel, double-tap to pick as winner',
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: (details) => onTapDown(details.globalPosition),
-        child: AnimatedScale(
-          duration: duration,
-          curve: Curves.easeOutBack,
-          scale: scale,
-          child: AnimatedOpacity(
-            duration: duration,
-            curve: Curves.easeOut,
-            opacity: isLoser ? 0.55 : 1,
-            child: AnimatedContainer(
-              duration: duration,
-              curve: Curves.easeOut,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: borderColor, width: isWinner ? 2 : 1),
-                boxShadow: isWinner
-                    ? [
-                        BoxShadow(
-                          color: AppColors.accent.withValues(alpha: 0.15),
-                          blurRadius: 16,
-                        ),
-                      ]
-                    : const [],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(7),
-                child: ExcludeSemantics(
-                  child: Image(
-                    image: AssetImage(assetPath),
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: double.infinity,
-                    filterQuality: FilterQuality.medium,
-                  ),
-                ),
-              ),
-            ),
           ),
         ),
-      ),
+        if (showHint) ...[
+          const SizedBox(height: 12),
+          const Text(
+            'Double-tap the outfit that wins',
+            style: AppTextStyles.meta,
+          ),
+        ],
+      ],
     );
   }
 }
 
-class _EmojiBurstParticle extends StatelessWidget {
-  const _EmojiBurstParticle({
-    required this.burst,
-    required this.onCompleted,
-    super.key,
-  });
-
-  final _EmojiBurst burst;
-  final VoidCallback onCompleted;
+/// Shown once every available pairing has been judged.
+class _ExhaustedArena extends ConsumerWidget {
+  const _ExhaustedArena();
 
   @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      left: burst.position.dx - 12,
-      top: burst.position.dy - 12,
-      child: IgnorePointer(
-        child: TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0, end: 1),
-          duration: const Duration(milliseconds: 900),
-          onEnd: onCompleted,
-          builder: (context, progress, child) {
-            // Projectile motion: launch along the burst velocity, then fall.
-            const gravity = 560.0;
-            final t = progress * 0.9;
-            final offset = Offset(
-              burst.velocity.dx * t,
-              burst.velocity.dy * t + 0.5 * gravity * t * t,
-            );
-            final fade = progress < 0.6 ? 1.0 : 1 - (progress - 0.6) / 0.4;
-
-            return Transform.translate(
-              offset: offset,
-              child: Transform.rotate(
-                angle: burst.tilt * progress * 2,
-                child: Opacity(
-                  opacity: fade,
-                  child: Transform.scale(
-                    scale: 0.7 + 0.4 * progress,
-                    child: child,
-                  ),
-                ),
-              ),
-            );
-          },
-          child: Text(
-            burst.emoji,
-            style: const TextStyle(fontSize: 24, height: 1),
-          ),
-        ),
-      ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    return AppEmptyState(
+      icon: CupertinoIcons.checkmark_seal,
+      title: 'You have judged everything',
+      message:
+          'New fits enter the arena all the time. Check back soon, or '
+          'upload one of your own.',
+      actionLabel: 'Check again',
+      onAction: () => ref.read(versusControllerProvider.notifier).reload(),
     );
   }
-}
-
-enum _VersusSide { left, right }
-
-class _VersusMatchup {
-  const _VersusMatchup({required this.leftAsset, required this.rightAsset});
-
-  final String leftAsset;
-  final String rightAsset;
-}
-
-class _EmojiBurst {
-  const _EmojiBurst({
-    required this.id,
-    required this.position,
-    required this.emoji,
-    required this.velocity,
-    required this.tilt,
-  });
-
-  final int id;
-  final Offset position;
-  final String emoji;
-  final Offset velocity;
-  final double tilt;
 }

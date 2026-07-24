@@ -4,7 +4,10 @@
 -- no signing round trip before it can render a matchup. Write access is scoped
 -- by folder, where the first path segment is the owner's uuid:
 --
---   fits/<owner_id>/<fit_id>
+--   fits/<owner_id>/<unique-file-name>
+--
+-- The image is uploaded first and the fit row is created afterwards pointing
+-- at the resulting path, so the file name cannot be the fit id.
 --
 -- Nothing secret belongs in this bucket; a fit photo is public the moment it
 -- enters the arena.

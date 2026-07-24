@@ -1,4 +1,4 @@
-package com.example.versed
+package com.vokh.versed
 
 import io.flutter.embedding.android.FlutterActivity
 

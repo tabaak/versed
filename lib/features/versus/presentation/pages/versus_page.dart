@@ -270,7 +270,7 @@ class _MatchupBoard extends StatelessWidget {
         const overlapFraction = 0.06;
 
         final cardWidth = min(
-          0.8 * constraints.maxWidth,
+          0.72 * constraints.maxWidth,
           constraints.maxHeight * aspectRatio / (2 - overlapFraction),
         );
         final cardHeight = cardWidth / aspectRatio;

@@ -1,7 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../versus/presentation/pages/versus_page.dart';
+import '../../../home/presentation/pages/home_shell.dart';
 import '../../controllers/auth_controller.dart';
 import '../pages/auth_page.dart';
 
@@ -18,7 +18,7 @@ class AuthGate extends ConsumerWidget {
     return authState.when(
       data: (user) => user == null
           ? AuthPage(onGoogleSignIn: signIn)
-          : const VersusPage(),
+          : const HomeShell(),
       error: (error, _) => AuthPage(onGoogleSignIn: signIn),
       loading: () => AuthPage(onGoogleSignIn: signIn, isLoading: true),
     );

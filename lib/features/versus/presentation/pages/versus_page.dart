@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
@@ -35,6 +36,7 @@ class _VersusPageState extends State<VersusPage> {
   static const _doubleTapWindow = Duration(milliseconds: 350);
   static const _highlightTimeout = Duration(milliseconds: 1500);
   static const _burstEmojis = ['🔥', '✨', '⚡', '💯', '👀', '👏'];
+  static const _hintSeenPrefKey = 'versus_double_tap_hint_seen';
 
   final _boardKey = GlobalKey();
   final _random = Random();
@@ -49,6 +51,29 @@ class _VersusPageState extends State<VersusPage> {
   final List<_EmojiBurst> _bursts = [];
   int _nextBurstId = 0;
   bool _imagesPrecached = false;
+  bool _showHint = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHintSeen();
+  }
+
+  Future<void> _loadHintSeen() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    if (!(prefs.getBool(_hintSeenPrefKey) ?? false)) {
+      setState(() => _showHint = true);
+    }
+  }
+
+  void _dismissHint() {
+    if (!_showHint) return;
+    setState(() => _showHint = false);
+    SharedPreferences.getInstance().then(
+      (prefs) => prefs.setBool(_hintSeenPrefKey, true),
+    );
+  }
 
   @override
   void didChangeDependencies() {
@@ -125,6 +150,7 @@ class _VersusPageState extends State<VersusPage> {
   void _pickWinner(_VersusSide side) {
     if (_winner != null) return;
 
+    _dismissHint();
     _highlightTimer?.cancel();
     setState(() {
       _winner = side;
@@ -164,7 +190,7 @@ class _VersusPageState extends State<VersusPage> {
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
           child: Column(
             children: [
               Expanded(
@@ -198,13 +224,13 @@ class _VersusPageState extends State<VersusPage> {
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
-              Text(
-                _winner == null
-                    ? 'Double-tap the outfit that wins'
-                    : 'Winner locked in',
-                style: AppTextStyles.meta,
-              ),
+              if (_showHint) ...[
+                const SizedBox(height: 12),
+                const Text(
+                  'Double-tap the outfit that wins',
+                  style: AppTextStyles.meta,
+                ),
+              ],
             ],
           ),
         ),
@@ -244,12 +270,13 @@ class _MatchupBoard extends StatelessWidget {
         const overlapFraction = 0.06;
 
         final cardWidth = min(
-          0.74 * constraints.maxWidth,
+          0.8 * constraints.maxWidth,
           constraints.maxHeight * aspectRatio / (2 - overlapFraction),
         );
         final cardHeight = cardWidth / aspectRatio;
         final pairHeight = (2 - overlapFraction) * cardHeight;
-        final topInset = (constraints.maxHeight - pairHeight) / 2;
+        // Anchor the pair near the top; leftover space stays at the bottom.
+        final topInset = min((constraints.maxHeight - pairHeight) / 2, 12.0);
 
         final leftCard = Positioned(
           left: 0,

@@ -36,13 +36,12 @@ baseline can also be run against the existing hosted project safely.
 votes between them. Seeding your own account would not work: `cast_vote()`
 refuses votes on your own fits, so an arena stocked only by you is empty.
 
-It needs the service-role key to bypass RLS. Keep it in the environment, never
-in a file:
+Both tools need the service-role key to bypass RLS. They read `SUPABASE_URL` and
+`SUPABASE_SERVICE_ROLE_KEY` from `.env.local` at the project root — which is
+gitignored — or from environment variables of the same name, which take
+precedence. Each prints the project it is about to write to before it starts.
 
 ```bash
-export SUPABASE_URL='https://<project>.supabase.co'
-export SUPABASE_SERVICE_ROLE_KEY='<service-role key>'
-
 dart run tool/seed_arena.dart                 # 8 users x 3 fits, 40 votes
 dart run tool/seed_arena.dart --download 30   # placeholder photos, not outfits
 dart run tool/seed_arena.dart --images ~/fits # your own directory of photos
@@ -70,9 +69,6 @@ same genre, so the genre is a real decision about the photo rather than metadata
 localhost that shows one photo at a time with a button per genre:
 
 ```bash
-export SUPABASE_URL='https://<project>.supabase.co'
-export SUPABASE_SERVICE_ROLE_KEY='<service-role key>'
-
 dart run tool/tag_fits.dart --images ~/outfits             # tag and enter
 dart run tool/tag_fits.dart --images ~/outfits --owners 8  # wider owner pool
 dart run tool/tag_fits.dart --images ~/outfits --all       # revisit tagged ones

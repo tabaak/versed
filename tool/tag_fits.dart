@@ -15,11 +15,10 @@
 // person can never produce a battle. The tool spreads each genre's photos
 // across as many owners as it has, and warns about genres left with one.
 //
-// Requires the service-role key, which bypasses RLS. Never commit it, and
-// never point this at production.
-//
-//   export SUPABASE_URL='https://<project>.supabase.co'
-//   export SUPABASE_SERVICE_ROLE_KEY='<service-role key>'
+// Requires the service-role key, which bypasses RLS. It is read from
+// `.env.local` at the project root (SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY),
+// or from environment variables of the same name, which win. Never commit it,
+// and never point this at production.
 //
 //   dart run tool/tag_fits.dart --images ~/outfits
 //   dart run tool/tag_fits.dart --images ~/outfits --owners 8
@@ -40,6 +39,7 @@ import 'package:supabase/supabase.dart';
 import 'package:versed/features/fits/models/fit_genre.dart';
 
 import 'seed_identities.dart';
+import 'tool_env.dart';
 
 const _bucket = 'fits';
 
@@ -57,15 +57,14 @@ final _random = Random();
 Future<void> main(List<String> args) async {
   final options = _Options.parse(args);
 
-  final url = Platform.environment['SUPABASE_URL'];
-  final serviceKey = Platform.environment['SUPABASE_SERVICE_ROLE_KEY'];
-
-  if (url == null || url.isEmpty || serviceKey == null || serviceKey.isEmpty) {
-    _fail(
-      'Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY before running.\n'
-      'Find both under Project Settings > API in the Supabase dashboard.',
-    );
+  final credentials = readSupabaseCredentials();
+  if (credentials == null) {
+    _fail(missingCredentialsMessage);
   }
+
+  // Said out loud because the service-role key bypasses RLS: whatever project
+  // this names is about to be written to.
+  stdout.writeln('Using ${credentials.url} (from ${credentials.source}).');
 
   final directory = Directory(options.imageDirectory);
   if (!directory.existsSync()) {
@@ -101,8 +100,8 @@ Future<void> main(List<String> args) async {
   );
 
   final client = SupabaseClient(
-    url,
-    serviceKey,
+    credentials.url,
+    credentials.serviceKey,
     authOptions: const AuthClientOptions(autoRefreshToken: false),
   );
 

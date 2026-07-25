@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/services/storage_service.dart';
 import '../../../core/services/supabase_service.dart';
 import '../models/fit.dart';
+import '../models/fit_genre.dart';
 
 class FitService {
   FitService(this._client, this._storage);
@@ -14,7 +15,8 @@ class FitService {
   final StorageService _storage;
 
   static const _table = 'fits';
-  static const _columns = 'id, owner_id, image_path, wins, losses, created_at';
+  static const _columns =
+      'id, owner_id, image_path, genre, wins, losses, created_at';
 
   /// Live fits belonging to [ownerId], newest first. Soft-deleted fits are
   /// excluded, which is what the profile grid wants.
@@ -37,6 +39,7 @@ class FitService {
     required String ownerId,
     required Uint8List bytes,
     required String fileExtension,
+    required FitGenre genre,
   }) async {
     final imagePath = await _storage.uploadFitImage(
       ownerId: ownerId,
@@ -47,7 +50,11 @@ class FitService {
     try {
       final row = await _client
           .from(_table)
-          .insert({'owner_id': ownerId, 'image_path': imagePath})
+          .insert({
+            'owner_id': ownerId,
+            'image_path': imagePath,
+            'genre': genre.value,
+          })
           .select(_columns)
           .single();
 

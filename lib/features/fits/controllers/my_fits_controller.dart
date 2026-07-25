@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/controllers/auth_controller.dart';
 import '../models/fit.dart';
+import '../models/fit_genre.dart';
 import '../services/fit_service.dart';
 
 /// The signed-in user's own fits, as shown in the profile grid.
@@ -26,6 +27,7 @@ class MyFitsController extends AsyncNotifier<List<Fit>> {
   Future<Fit> addFit({
     required Uint8List bytes,
     required String fileExtension,
+    required FitGenre genre,
   }) async {
     final user = ref.read(authControllerProvider).value;
     if (user == null) {
@@ -38,6 +40,7 @@ class MyFitsController extends AsyncNotifier<List<Fit>> {
           ownerId: user.id,
           bytes: bytes,
           fileExtension: fileExtension,
+          genre: genre,
         );
 
     state = AsyncData([fit, ..._current]);

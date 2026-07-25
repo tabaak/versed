@@ -1,3 +1,5 @@
+import 'fit_genre.dart';
+
 /// A single outfit entered into the arena.
 ///
 /// The same class covers two row shapes, because the arena and the profile
@@ -16,6 +18,7 @@ class Fit {
     required this.imagePath,
     required this.wins,
     required this.losses,
+    this.genre,
     this.createdAt,
     this.ownerUsername,
     this.ownerDisplayName,
@@ -39,6 +42,7 @@ class Fit {
       imagePath: json['image_path'] as String,
       wins: json['wins'] as int? ?? 0,
       losses: json['losses'] as int? ?? 0,
+      genre: FitGenre.fromValue(json['genre'] as String?),
       createdAt: createdAt == null ? null : DateTime.parse(createdAt),
       ownerUsername: json['username'] as String?,
       ownerDisplayName: json['display_name'] as String?,
@@ -50,6 +54,10 @@ class Fit {
   final String imagePath;
   final int wins;
   final int losses;
+
+  /// Null when the query left the column out, or when the row holds a genre
+  /// this build does not know about.
+  final FitGenre? genre;
   final DateTime? createdAt;
   final String? ownerUsername;
   final String? ownerDisplayName;
@@ -69,6 +77,7 @@ class Fit {
       'image_path': imagePath,
       'wins': wins,
       'losses': losses,
+      'genre': genre?.value,
       'created_at': createdAt?.toIso8601String(),
       'username': ownerUsername,
       'display_name': ownerDisplayName,
@@ -81,6 +90,7 @@ class Fit {
     String? imagePath,
     int? wins,
     int? losses,
+    FitGenre? genre,
     DateTime? createdAt,
     String? ownerUsername,
     String? ownerDisplayName,
@@ -91,6 +101,7 @@ class Fit {
       imagePath: imagePath ?? this.imagePath,
       wins: wins ?? this.wins,
       losses: losses ?? this.losses,
+      genre: genre ?? this.genre,
       createdAt: createdAt ?? this.createdAt,
       ownerUsername: ownerUsername ?? this.ownerUsername,
       ownerDisplayName: ownerDisplayName ?? this.ownerDisplayName,
@@ -106,6 +117,7 @@ class Fit {
             other.imagePath == imagePath &&
             other.wins == wins &&
             other.losses == losses &&
+            other.genre == genre &&
             other.createdAt == createdAt &&
             other.ownerUsername == ownerUsername &&
             other.ownerDisplayName == ownerDisplayName;
@@ -119,6 +131,7 @@ class Fit {
       imagePath,
       wins,
       losses,
+      genre,
       createdAt,
       ownerUsername,
       ownerDisplayName,
@@ -128,7 +141,8 @@ class Fit {
   @override
   String toString() {
     return 'Fit(id: $id, ownerId: $ownerId, imagePath: $imagePath, '
-        'wins: $wins, losses: $losses, createdAt: $createdAt, '
+        'wins: $wins, losses: $losses, genre: ${genre?.value}, '
+        'createdAt: $createdAt, '
         'ownerUsername: $ownerUsername, ownerDisplayName: $ownerDisplayName)';
   }
 }

@@ -48,6 +48,10 @@ app.*.map.json
 # bypasses RLS entirely. Never commit it.
 .env.local
 
+# Which photos in a directory tool/tag_fits.dart has already entered. Lives
+# next to the photos, which may be inside the repo.
+.versed-tagged.json
+
 # AI Skills
 .claude
 .codex

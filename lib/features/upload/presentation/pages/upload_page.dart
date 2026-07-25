@@ -7,8 +7,10 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_modal.dart';
 import '../../../../core/widgets/app_notification.dart';
+import '../../../fits/models/fit_genre.dart';
 import '../../controllers/upload_controller.dart';
 import '../widgets/fit_preview.dart';
+import '../widgets/genre_picker.dart';
 
 /// Submits an outfit photo into the arena.
 class UploadPage extends ConsumerStatefulWidget {
@@ -43,6 +45,10 @@ class _UploadPageState extends ConsumerState<UploadPage> {
 
     if (!mounted || failure == null) return;
     AppToast.error(context: context, message: failure);
+  }
+
+  void _selectGenre(FitGenre genre) {
+    ref.read(uploadControllerProvider.notifier).selectGenre(genre);
   }
 
   Future<void> _submit() async {
@@ -82,11 +88,17 @@ class _UploadPageState extends ConsumerState<UploadPage> {
                   children: [
                     Expanded(child: FitPreview(bytes: picked.bytes)),
                     const SizedBox(height: 16),
+                    GenrePicker(
+                      selected: state.genre,
+                      enabled: !state.isUploading,
+                      onSelected: _selectGenre,
+                    ),
+                    const SizedBox(height: 16),
                     AppButton(
                       label: state.isUploading
                           ? 'Entering…'
                           : 'Enter the arena',
-                      onPressed: state.isUploading ? null : _submit,
+                      onPressed: state.canSubmit ? _submit : null,
                     ),
                     const SizedBox(height: 8),
                     AppButton(

@@ -299,8 +299,16 @@ class _Arena extends StatelessWidget {
   Widget build(BuildContext context) {
     final animationsDisabled = MediaQuery.disableAnimationsOf(context);
 
+    final genre = matchup.genre;
+
     return Column(
       children: [
+        // Which genre this battle is in: the pair is always like against like,
+        // so one label covers both cards.
+        if (genre != null) ...[
+          Text(genre.label.toUpperCase(), style: AppTextStyles.meta),
+          const SizedBox(height: 8),
+        ],
         Expanded(
           child: Stack(
             key: boardKey,

@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/utils/error_messages.dart';
 import '../../fits/controllers/my_fits_controller.dart';
+import '../../fits/models/fit_genre.dart';
 import '../models/upload_state.dart';
 import '../services/image_pick_service.dart';
 
@@ -20,11 +21,18 @@ class UploadController extends Notifier<UploadState> {
       // A null pick means the user backed out — not a failure.
       if (picked == null) return null;
 
+      // A fresh photo is a fresh fit, so the previous genre choice goes with
+      // the previous photo.
       state = UploadState(picked: picked);
       return null;
     } catch (error) {
       return describeError(error);
     }
+  }
+
+  void selectGenre(FitGenre genre) {
+    if (state.isUploading) return;
+    state = state.copyWith(genre: genre);
   }
 
   void clear() {
@@ -35,14 +43,19 @@ class UploadController extends Notifier<UploadState> {
   /// Uploads the staged photo and adds the fit to the user's grid.
   Future<String?> submit() async {
     final picked = state.picked;
-    if (picked == null || state.isUploading) return null;
+    final genre = state.genre;
+    if (picked == null || genre == null || state.isUploading) return null;
 
     state = state.copyWith(isUploading: true);
 
     try {
       await ref
           .read(myFitsControllerProvider.notifier)
-          .addFit(bytes: picked.bytes, fileExtension: picked.fileExtension);
+          .addFit(
+            bytes: picked.bytes,
+            fileExtension: picked.fileExtension,
+            genre: genre,
+          );
 
       state = UploadState.initial;
       return null;

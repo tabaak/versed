@@ -1,4 +1,5 @@
 import '../../fits/models/fit.dart';
+import '../../fits/models/fit_genre.dart';
 
 /// Which side of the board a fit is on.
 enum VersusSide { left, right }
@@ -12,6 +13,10 @@ class Matchup {
 
   final Fit left;
   final Fit right;
+
+  /// The genre both fits were drawn from — `next_matchup()` only ever pairs
+  /// like with like. Null when neither row carried a genre this build knows.
+  FitGenre? get genre => left.genre ?? right.genre;
 
   Fit fitOn(VersusSide side) => side == VersusSide.left ? left : right;
 

@@ -19,38 +19,25 @@
 //                                                    # keeping rows and votes
 //   dart run tool/seed_arena.dart --clean --yes      # remove everything seeded
 //
-// Seeded accounts are recognised by their email domain, so --clean can never
-// touch a real user.
+// Genres are assigned in rotation because the photos are stock placeholders,
+// not outfits. To enter real outfits under genres you have judged yourself,
+// use tool/tag_fits.dart instead.
+//
+// Handles and names come from the shared pool in tool/seed_identities.dart, so
+// the arena does not visibly announce that it is full of test data. Accounts are
+// recognised by their email domain instead, so --clean can never touch a real
+// user.
 
-import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:supabase/supabase.dart';
+import 'package:versed/features/fits/models/fit_genre.dart';
 
-/// Every synthetic account uses this domain. `.invalid` is reserved by RFC
-/// 2606 and can never be a real address, which is what makes --clean safe.
-const seedEmailDomain = 'versed-seed.invalid';
-
-const seedHandlePrefix = 'arena_seed_';
+import 'seed_identities.dart';
 
 const _bucket = 'fits';
-
-const _displayNames = [
-  'Nova Reyes',
-  'Kit Alvarez',
-  'Juno Park',
-  'Remy Okafor',
-  'Sasha Lindqvist',
-  'Theo Marchetti',
-  'Wren Castillo',
-  'Idris Bello',
-  'Mika Tanaka',
-  'Lior Ben-Ari',
-  'Priya Raman',
-  'Dax Ferreira',
-];
 
 final _random = Random();
 
@@ -127,41 +114,29 @@ Future<void> _seed(SupabaseClient client, _Options options) async {
 
   final fitIdsByOwner = <String, List<String>>{};
   var imageCursor = 0;
+  // Matchmaking pairs within a genre, so genres are handed out in sequence
+  // across every fit rather than per user: each genre then holds fits from
+  // several different owners, which is what next_matchup() needs to draw a
+  // pair. Seeded photos are placeholders, so the genre they get is arbitrary.
+  var genreCursor = 0;
+
+  // Handles come from the shared identity pool, so the arena is not visibly
+  // full of bots. Existing handles are read first because the pool has to skip
+  // anything already spoken for.
+  final taken = await fetchTakenHandles(client);
 
   for (var index = 0; index < options.userCount; index++) {
-    final suffix = DateTime.now().millisecondsSinceEpoch % 100000;
-    final handle = '$seedHandlePrefix${suffix}_$index';
-    final email = '$handle@$seedEmailDomain';
-
-    final response = await client.auth.admin.createUser(
-      AdminUserAttributes(
-        email: email,
-        password: _randomPassword(),
-        emailConfirm: true,
-        userMetadata: {
-          'full_name': _displayNames[index % _displayNames.length],
-        },
-      ),
-    );
-
-    final user = response.user;
-    if (user == null) {
-      stderr.writeln('  ! could not create $email, skipping');
+    final owner = await createSeedOwner(client, taken: taken);
+    if (owner == null) {
+      stderr.writeln('  ! could not create a test account, skipping');
       continue;
     }
-
-    // The on_auth_user_created trigger already made the profile row; it just
-    // has no handle, because Google sign-in never supplies one either.
-    await client
-        .from('profiles')
-        .update({'username': handle.substring(0, min(handle.length, 20))})
-        .eq('id', user.id);
 
     final fitIds = <String>[];
     for (var fitIndex = 0; fitIndex < options.fitsPerUser; fitIndex++) {
       final image = images[imageCursor++ % images.length];
       final path =
-          '${user.id}/${DateTime.now().microsecondsSinceEpoch}'
+          '${owner.id}/${DateTime.now().microsecondsSinceEpoch}'
           '-${_random.nextInt(1 << 32)}.${image.extension}';
 
       await client.storage
@@ -172,17 +147,23 @@ Future<void> _seed(SupabaseClient client, _Options options) async {
             fileOptions: FileOptions(contentType: image.contentType),
           );
 
+      final genre = FitGenre.values[genreCursor++ % FitGenre.values.length];
+
       final row = await client
           .from('fits')
-          .insert({'owner_id': user.id, 'image_path': path})
+          .insert({
+            'owner_id': owner.id,
+            'image_path': path,
+            'genre': genre.value,
+          })
           .select('id')
           .single();
 
       fitIds.add(row['id'] as String);
     }
 
-    fitIdsByOwner[user.id] = fitIds;
-    stdout.writeln('  + @$handle with ${fitIds.length} fits');
+    fitIdsByOwner[owner.id] = fitIds;
+    stdout.writeln('  + ${owner.atHandle} with ${fitIds.length} fits');
   }
 
   if (options.voteCount > 0) {
@@ -451,11 +432,6 @@ Future<List<_SeedImage>> _downloadImages(int count) async {
   }
 
   return images;
-}
-
-String _randomPassword() {
-  final bytes = List<int>.generate(24, (_) => _random.nextInt(256));
-  return base64Url.encode(bytes);
 }
 
 Never _fail(String message) {

@@ -51,6 +51,7 @@ class MatchupBoard extends StatelessWidget {
         final topInset = min((constraints.maxHeight - pairHeight) / 2, 12.0);
 
         final leftCard = Positioned(
+          key: const ValueKey(VersusSide.left),
           left: 0,
           top: topInset + (1 - overlapFraction) * cardHeight,
           width: cardWidth,
@@ -60,6 +61,7 @@ class MatchupBoard extends StatelessWidget {
             isWinner: winner == VersusSide.left,
             isLoser: winner == VersusSide.right,
             isHighlighted: highlighted == VersusSide.left,
+            isDimmed: highlighted == VersusSide.right,
             duration: duration,
             semanticLabel: 'Bottom left outfit',
             onTapDown: (globalPosition) =>
@@ -68,6 +70,7 @@ class MatchupBoard extends StatelessWidget {
           ),
         );
         final rightCard = Positioned(
+          key: const ValueKey(VersusSide.right),
           right: 0,
           top: topInset,
           width: cardWidth,
@@ -77,6 +80,7 @@ class MatchupBoard extends StatelessWidget {
             isWinner: winner == VersusSide.right,
             isLoser: winner == VersusSide.left,
             isHighlighted: highlighted == VersusSide.right,
+            isDimmed: highlighted == VersusSide.left,
             duration: duration,
             semanticLabel: 'Top right outfit',
             onTapDown: (globalPosition) =>

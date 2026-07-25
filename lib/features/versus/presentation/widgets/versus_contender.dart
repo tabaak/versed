@@ -10,6 +10,7 @@ class VersusContender extends StatelessWidget {
     required this.isWinner,
     required this.isLoser,
     required this.isHighlighted,
+    required this.isDimmed,
     required this.duration,
     required this.semanticLabel,
     required this.onTapDown,
@@ -21,6 +22,9 @@ class VersusContender extends StatelessWidget {
   final bool isWinner;
   final bool isLoser;
   final bool isHighlighted;
+
+  /// True while the *other* card is highlighted, so this one recedes.
+  final bool isDimmed;
   final Duration duration;
   final String semanticLabel;
   final ValueChanged<Offset> onTapDown;
@@ -76,7 +80,19 @@ class VersusContender extends StatelessWidget {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(7),
-                child: ExcludeSemantics(child: FitImage(imagePath: imagePath)),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    ExcludeSemantics(child: FitImage(imagePath: imagePath)),
+                    AnimatedContainer(
+                      duration: duration,
+                      curve: Curves.easeOut,
+                      color: const Color(
+                        0xFF000000,
+                      ).withValues(alpha: isDimmed ? 0.45 : 0),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

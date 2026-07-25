@@ -15,6 +15,8 @@
 //   dart run tool/seed_arena.dart --users 20 --fits 4
 //   dart run tool/seed_arena.dart --download 30      # fetch placeholder photos
 //   dart run tool/seed_arena.dart --images ~/outfits # use your own directory
+//   dart run tool/seed_arena.dart --refresh-photos   # unique photo per fit,
+//                                                    # keeping rows and votes
 //   dart run tool/seed_arena.dart --clean --yes      # remove everything seeded
 //
 // Seeded accounts are recognised by their email domain, so --clean can never
@@ -74,6 +76,8 @@ Future<void> main(List<String> args) async {
   try {
     if (options.clean) {
       await _clean(client, confirmed: options.yes);
+    } else if (options.refreshPhotos) {
+      await _refreshPhotos(client, options);
     } else {
       await _seed(client, options);
     }
@@ -94,10 +98,32 @@ Future<void> _seed(SupabaseClient client, _Options options) async {
     );
   }
 
+  final totalFits = options.userCount * options.fitsPerUser;
+
   stdout.writeln(
     'Seeding ${options.userCount} users x ${options.fitsPerUser} fits '
     'from ${images.length} source images…',
   );
+
+  if (totalFits > images.length) {
+    // Each photo ends up owned by several different users, so the arena will
+    // sometimes show the same outfit on both sides of the board. Worth saying
+    // out loud, because it reads like a matchmaking bug.
+    final copies = (totalFits / images.length).ceil();
+    final duplicateOdds =
+        100 *
+        images.length *
+        (copies * (copies - 1) / 2) /
+        (totalFits * (totalFits - 1) / 2);
+    stdout.writeln(
+      '  ! only ${images.length} photos for $totalFits fits, so each appears '
+      'up to $copies times under different handles.\n'
+      '    Expect the same outfit on both sides in roughly '
+      '${duplicateOdds.round()}% of matchups.\n'
+      '    Use --download $totalFits, or --images with a bigger directory, '
+      'to avoid it.',
+    );
+  }
 
   final fitIdsByOwner = <String, List<String>>{};
   var imageCursor = 0;
@@ -170,12 +196,100 @@ Future<void> _seed(SupabaseClient client, _Options options) async {
   );
 }
 
+/// Gives every already-seeded fit a distinct photo, in place.
+///
+/// Seeding from a small directory hands the same photo to several owners, so
+/// the arena shows one outfit against itself. Reseeding would fix that too, but
+/// it deletes the accounts and takes their fits, votes and win records with
+/// them. This keeps every row and only swaps the images.
+///
+/// The new photo goes to a fresh path rather than overwriting the old object:
+/// the bucket is public and CDN-cached, so reusing the path would serve the old
+/// image for up to an hour.
+Future<void> _refreshPhotos(SupabaseClient client, _Options options) async {
+  final users = await client.auth.admin.listUsers(perPage: 1000);
+  final seededIds = users
+      .where((user) => user.email?.endsWith('@$seedEmailDomain') ?? false)
+      .map((user) => user.id)
+      .toList();
+
+  if (seededIds.isEmpty) {
+    stdout.writeln('No seeded accounts found. Nothing to refresh.');
+    return;
+  }
+
+  final fits = await client
+      .from('fits')
+      .select('id, owner_id, image_path')
+      .inFilter('owner_id', seededIds)
+      .isFilter('deleted_at', null);
+
+  if (fits.isEmpty) {
+    stdout.writeln('Seeded accounts hold no live fits. Nothing to refresh.');
+    return;
+  }
+
+  // Every fit needs its own photo, so a directory only works when it holds at
+  // least that many. Otherwise fetch exactly what is missing.
+  final fromDirectory = _readImages(options.imageDirectory);
+  final images = fromDirectory.length >= fits.length
+      ? fromDirectory
+      : await _downloadImages(fits.length);
+
+  if (images.length < fits.length) {
+    _fail(
+      'Only ${images.length} images available for ${fits.length} fits. '
+      'Retry, or pass --images with at least ${fits.length} photos.',
+    );
+  }
+
+  stdout.writeln('Giving ${fits.length} fits a distinct photo each…');
+
+  for (var index = 0; index < fits.length; index++) {
+    final fit = fits[index];
+    final image = images[index];
+    final ownerId = fit['owner_id'] as String;
+    final oldPath = fit['image_path'] as String;
+
+    final newPath =
+        '$ownerId/${DateTime.now().microsecondsSinceEpoch}'
+        '-${_random.nextInt(1 << 32)}.${image.extension}';
+
+    await client.storage
+        .from(_bucket)
+        .uploadBinary(
+          newPath,
+          image.bytes,
+          fileOptions: FileOptions(contentType: image.contentType),
+        );
+
+    await client
+        .from('fits')
+        .update({'image_path': newPath})
+        .eq('id', fit['id'] as String);
+
+    // Only drop the old object once the row points elsewhere, so a failure
+    // never leaves a fit pointing at a deleted image.
+    await client.storage.from(_bucket).remove([oldPath]).catchError((_) {
+      stderr.writeln('  ! could not delete old object $oldPath');
+      return <FileObject>[];
+    });
+
+    stdout.writeln('  ~ ${fit['id']}');
+  }
+
+  stdout.writeln(
+    '\nDone. Rows, votes and win records are untouched; only the photos '
+    'changed.',
+  );
+}
+
 /// Writes votes straight to the table rather than through cast_vote().
 ///
 /// The RPC reads auth.uid() to identify the voter, and the service-role key
 /// has no user attached, so it would always raise 'not authenticated'. Writing
 /// directly means reproducing what the function guarantees: normalised pair
-/// order, no self-voting, and both counters moved.
+/// order, no self-voting, two distinct owners, and both counters moved.
 Future<int> _seedVotes(
   SupabaseClient client,
   Map<String, List<String>> fitIdsByOwner,
@@ -203,6 +317,8 @@ Future<int> _seedVotes(
 
     if (winner == loser) continue;
     if (ownerOfFit[winner] == voter || ownerOfFit[loser] == voter) continue;
+    // Same rule next_matchup() enforces: a battle is between two people.
+    if (ownerOfFit[winner] == ownerOfFit[loser]) continue;
 
     // Canonical order: the smaller uuid is always fit_a. Postgres orders
     // uuids byte-wise, which for lowercase canonical text matches a plain
@@ -371,6 +487,7 @@ class _Options {
     required this.imageDirectory,
     required this.downloadCount,
     required this.clean,
+    required this.refreshPhotos,
     required this.yes,
   });
 
@@ -382,6 +499,7 @@ class _Options {
     var downloadCount = 0;
     var clean = false;
     var yes = false;
+    var refreshPhotos = false;
 
     for (var index = 0; index < args.length; index++) {
       switch (args[index]) {
@@ -397,6 +515,8 @@ class _Options {
           downloadCount = int.parse(args[++index]);
         case '--clean':
           clean = true;
+        case '--refresh-photos':
+          refreshPhotos = true;
         case '--yes':
           yes = true;
         default:
@@ -411,6 +531,7 @@ class _Options {
       imageDirectory: imageDirectory,
       downloadCount: downloadCount,
       clean: clean,
+      refreshPhotos: refreshPhotos,
       yes: yes,
     );
   }
@@ -421,5 +542,6 @@ class _Options {
   final String imageDirectory;
   final int downloadCount;
   final bool clean;
+  final bool refreshPhotos;
   final bool yes;
 }

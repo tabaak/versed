@@ -434,11 +434,16 @@ class _Arena extends StatelessWidget {
       children: [
         // Which genre this battle is in: the pair is always like against like,
         // so one label covers both cards. Only worth showing while the arena
-        // is drawing from every category.
-        if (showGenreLabel && genre != null) ...[
-          Text(genre.label.toUpperCase(), style: AppTextStyles.meta),
-          const SizedBox(height: 8),
-        ],
+        // is drawing from every category. It peeks in and back out rather
+        // than sitting there permanently, so the board gets the same amount
+        // of room (and the cards render at the same size) as when a single
+        // category is selected.
+        if (showGenreLabel)
+          _GenreRevealBanner(
+            revealKey: matchup.pairKey,
+            genreLabel: genre?.label,
+            animationsDisabled: animationsDisabled,
+          ),
         Expanded(
           child: Stack(
             key: boardKey,
@@ -479,6 +484,96 @@ class _Arena extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// Slides the current genre label down from the top of the board, holds it
+/// briefly, then slides it back out.
+///
+/// Mounted only in the "All" category, where the pair's genre changes from
+/// matchup to matchup and is worth calling out. Collapsing back to zero
+/// height (rather than just fading) is what lets [MatchupBoard]'s
+/// [LayoutBuilder] hand the reclaimed space back to the cards, so they grow
+/// to the same size they'd be in a single-category board.
+class _GenreRevealBanner extends StatefulWidget {
+  const _GenreRevealBanner({
+    required this.revealKey,
+    required this.genreLabel,
+    required this.animationsDisabled,
+  });
+
+  final Object revealKey;
+  final String? genreLabel;
+  final bool animationsDisabled;
+
+  @override
+  State<_GenreRevealBanner> createState() => _GenreRevealBannerState();
+}
+
+class _GenreRevealBannerState extends State<_GenreRevealBanner> {
+  static const _slideDuration = Duration(milliseconds: 300);
+  static const _visibleDuration = Duration(seconds: 1);
+
+  Timer? _hideTimer;
+  bool _visible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reveal());
+  }
+
+  @override
+  void didUpdateWidget(covariant _GenreRevealBanner oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.revealKey != oldWidget.revealKey) _reveal();
+  }
+
+  void _reveal() {
+    _hideTimer?.cancel();
+    if (widget.genreLabel == null) {
+      setState(() => _visible = false);
+      return;
+    }
+    setState(() => _visible = true);
+    _hideTimer = Timer(_visibleDuration, () {
+      if (mounted) setState(() => _visible = false);
+    });
+  }
+
+  @override
+  void dispose() {
+    _hideTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final duration = widget.animationsDisabled ? Duration.zero : _slideDuration;
+    return ClipRect(
+      child: AnimatedAlign(
+        duration: duration,
+        curve: Curves.easeOut,
+        alignment: Alignment.topCenter,
+        heightFactor: _visible ? 1 : 0,
+        child: AnimatedSlide(
+          duration: duration,
+          curve: Curves.easeOut,
+          offset: _visible ? Offset.zero : const Offset(0, -1),
+          child: AnimatedOpacity(
+            duration: duration,
+            opacity: _visible ? 1 : 0,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                (widget.genreLabel ?? '').toUpperCase(),
+                style: AppTextStyles.meta,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

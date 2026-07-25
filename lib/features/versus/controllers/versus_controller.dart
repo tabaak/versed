@@ -6,9 +6,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/utils/error_messages.dart';
 import '../../auth/controllers/auth_controller.dart';
 import '../../fits/models/fit.dart';
+import '../../fits/models/fit_genre.dart';
 import '../../fits/services/fit_service.dart';
 import '../models/matchup.dart';
 import '../services/versus_service.dart';
+import 'arena_filter_controller.dart';
 
 /// Drives the arena: keeps a small queue of matchups so a vote is followed by
 /// the next pair instantly instead of a network round trip.
@@ -27,10 +29,16 @@ class VersusController extends AsyncNotifier<VersusState> {
   /// pair that is already in hand.
   final _seenPairKeys = <String>{};
 
+  /// The category this queue was filled from; null draws from all of them.
+  FitGenre? _genre;
+
   @override
   Future<VersusState> build() async {
     // Rebuild for a different signed-in user; their exclusions differ.
     ref.watch(authControllerProvider);
+    // ...and for a different category: everything queued belongs to the genre
+    // that was selected when it was fetched.
+    _genre = ref.watch(arenaFilterControllerProvider);
 
     _queue.clear();
     _seenPairKeys.clear();
@@ -111,7 +119,7 @@ class VersusController extends AsyncNotifier<VersusState> {
 
     while (_queue.length < _queueTarget && attempts < _maxFetchAttempts) {
       attempts++;
-      final matchup = await service.fetchNextMatchup();
+      final matchup = await service.fetchNextMatchup(genre: _genre);
       if (matchup == null) break;
       if (_seenPairKeys.add(matchup.pairKey)) {
         _queue.add(matchup);

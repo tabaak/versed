@@ -13,8 +13,12 @@ import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_modal.dart';
 import '../../../../core/widgets/app_notification.dart';
 import '../../../fits/models/fit.dart';
+import '../../../fits/models/fit_genre.dart';
+import '../../../fits/presentation/widgets/fit_image.dart';
+import '../../controllers/arena_filter_controller.dart';
 import '../../controllers/versus_controller.dart';
 import '../../models/matchup.dart';
+import '../widgets/arena_genre_bar.dart';
 import '../widgets/emoji_burst.dart';
 import '../widgets/matchup_board.dart';
 
@@ -30,13 +34,17 @@ class _VersusPageState extends ConsumerState<VersusPage> {
   static const _winnerRevealDuration = Duration(milliseconds: 900);
   static const _doubleTapWindow = Duration(milliseconds: 350);
   static const _highlightTimeout = Duration(milliseconds: 1500);
+
+  /// How long the winner reveal may linger waiting on the next pair's images
+  /// before the board moves on regardless. Holding forever would strand the
+  /// user on a decided matchup if the network stalls.
+  static const _nextPairWaitCap = Duration(seconds: 5);
   static const _burstEmojis = ['🔥', '✨', '⚡', '💯', '👀', '👏'];
   static const _hintSeenPrefKey = 'versus_double_tap_hint_seen';
 
   final _boardKey = GlobalKey();
   final _random = Random();
 
-  Timer? _advanceTimer;
   Timer? _highlightTimer;
   VersusSide? _winner;
   VersusSide? _highlighted;
@@ -46,9 +54,11 @@ class _VersusPageState extends ConsumerState<VersusPage> {
   int _nextBurstId = 0;
   bool _showHint = false;
 
-  /// The matchup whose images are already warmed, so the queue is only
-  /// precached once per pair.
-  String? _precachedPairKey;
+  /// Warm-up for the queued pair, and the one behind it that is now on screen.
+  /// The outgoing one is held one extra step so its images stay resident until
+  /// the board's own cards have taken over listening to them.
+  _PairWarmup? _warmup;
+  _PairWarmup? _retiredWarmup;
 
   @override
   void initState() {
@@ -74,14 +84,43 @@ class _VersusPageState extends ConsumerState<VersusPage> {
 
   /// Warms the queued matchup's images while the user is still deciding, so
   /// the next pair does not fade in half-loaded.
-  void _precacheUpcoming(Matchup? upcoming) {
-    if (upcoming == null || upcoming.pairKey == _precachedPairKey) return;
-    _precachedPairKey = upcoming.pairKey;
+  void _warmUpcoming(Matchup? upcoming) {
+    if (upcoming?.pairKey == _warmup?.pairKey) return;
+
+    // The outgoing warm-up covers the pair that just reached the screen. Its
+    // cards now listen to those images themselves, so it can be released.
+    _retiredWarmup?.dispose();
+    _retiredWarmup = _warmup;
+
+    if (upcoming == null) {
+      _warmup = null;
+      return;
+    }
 
     final storage = ref.read(storageServiceProvider);
-    for (final fit in [upcoming.left, upcoming.right]) {
-      precacheImage(NetworkImage(storage.fitImageUrl(fit.imagePath)), context);
-    }
+    _warmup = _PairWarmup(
+      pairKey: upcoming.pairKey,
+      configuration: createLocalImageConfiguration(context),
+      providers: [
+        for (final fit in [upcoming.left, upcoming.right])
+          fitImageProvider(storage.fitImageUrl(fit.imagePath)),
+      ],
+    );
+  }
+
+  /// Holds the winner reveal until the queued pair can paint in one go, so the
+  /// board never swaps into two loading spinners. Falls back to the plain
+  /// reveal duration when nothing is queued (the arena shows its own loading
+  /// state then) or when the images take too long.
+  Future<void> _awaitNextPair(Duration revealDelay) async {
+    final reveal = Future<void>.delayed(revealDelay);
+    final images = _warmup?.ready;
+    if (images == null) return reveal;
+
+    await Future.wait([
+      reveal,
+      images.timeout(_nextPairWaitCap, onTimeout: () {}),
+    ]);
   }
 
   void _handleTapDown(VersusSide side, Offset globalPosition) {
@@ -158,17 +197,23 @@ class _VersusPageState extends ConsumerState<VersusPage> {
     final revealDelay = MediaQuery.disableAnimationsOf(context)
         ? const Duration(milliseconds: 300)
         : _winnerRevealDuration;
-    _advanceTimer = Timer(revealDelay, _advance);
 
-    final failure = await ref
-        .read(versusControllerProvider.notifier)
-        .submitVote(
-          winnerId: matchup.fitOn(side).id,
-          loserId: matchup.opponentOf(side).id,
-        );
+    unawaited(
+      ref
+          .read(versusControllerProvider.notifier)
+          .submitVote(
+            winnerId: matchup.fitOn(side).id,
+            loserId: matchup.opponentOf(side).id,
+          )
+          .then((failure) {
+            if (!mounted || failure == null) return;
+            AppToast.error(context: context, message: failure);
+          }),
+    );
 
-    if (!mounted || failure == null) return;
-    AppToast.error(context: context, message: failure);
+    await _awaitNextPair(revealDelay);
+    if (!mounted || _winner != side) return;
+    _advance();
   }
 
   void _advance() {
@@ -217,57 +262,139 @@ class _VersusPageState extends ConsumerState<VersusPage> {
 
   @override
   void dispose() {
-    _advanceTimer?.cancel();
     _highlightTimer?.cancel();
+    _warmup?.dispose();
+    _retiredWarmup?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(versusControllerProvider, (previous, next) {
-      _precacheUpcoming(next.value?.upcoming);
-    });
-
     final versusState = ref.watch(versusControllerProvider);
 
-    return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('VERSED', style: AppTextStyles.wordmark),
-        border: null,
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: versusState.when(
-            loading: () => const Center(child: CupertinoActivityIndicator()),
-            error: (error, _) => AppEmptyState(
-              icon: CupertinoIcons.exclamationmark_triangle,
-              title: 'The arena is out of reach',
-              message: describeError(error),
-              actionLabel: 'Try again',
-              onAction: () =>
-                  ref.read(versusControllerProvider.notifier).reload(),
-            ),
-            data: (state) {
-              final matchup = state.current;
-              if (matchup == null) return const _ExhaustedArena();
+    // Warmed from build rather than a listener: the first pair the arena loads
+    // is already in place by the time this page first builds, and a listener
+    // would miss it, leaving the very first swap after launch unwarmed.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _warmUpcoming(versusState.value?.upcoming);
+    });
 
-              return _Arena(
-                boardKey: _boardKey,
-                matchup: matchup,
-                winner: _winner,
-                highlighted: _highlighted,
-                bursts: _bursts,
-                showHint: _showHint,
-                onTapDown: _handleTapDown,
-                onLongPress: _reportFit,
-                onBurstCompleted: _removeBurst,
-              );
-            },
-          ),
+    final filter = ref.watch(arenaFilterControllerProvider);
+
+    // Switching category throws the queue away, so any reveal in progress
+    // belongs to a matchup that will never come back. Clearing it keeps the
+    // next pair from arriving already decided.
+    ref.listen<FitGenre?>(arenaFilterControllerProvider, (_, _) {
+      _highlightTimer?.cancel();
+      if (_winner == null && _highlighted == null) return;
+      setState(() {
+        _winner = null;
+        _highlighted = null;
+        _lastTapSide = null;
+      });
+    });
+
+    return CupertinoPageScaffold(
+      child: SafeArea(
+        child: Column(
+          children: [
+            // Outside the state switch: the category strip is how you get out
+            // of an empty or failed arena, so it stays put through both.
+            const ArenaGenreBar(),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: versusState.when(
+                  loading: () =>
+                      const Center(child: CupertinoActivityIndicator()),
+                  error: (error, _) => AppEmptyState(
+                    icon: CupertinoIcons.exclamationmark_triangle,
+                    title: 'The arena is out of reach',
+                    message: describeError(error),
+                    actionLabel: 'Try again',
+                    onAction: () =>
+                        ref.read(versusControllerProvider.notifier).reload(),
+                  ),
+                  data: (state) {
+                    final matchup = state.current;
+                    if (matchup == null) return _ExhaustedArena(filter: filter);
+
+                    return _Arena(
+                      boardKey: _boardKey,
+                      matchup: matchup,
+                      // The strip already names the category when one is
+                      // picked; repeating it over the board says nothing.
+                      showGenreLabel: filter == null,
+                      winner: _winner,
+                      highlighted: _highlighted,
+                      bursts: _bursts,
+                      showHint: _showHint,
+                      onTapDown: _handleTapDown,
+                      onLongPress: _reportFit,
+                      onBurstCompleted: _removeBurst,
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
+  }
+}
+
+/// Holds a matchup's two images decoded and *listened to* until the board has
+/// moved on to them.
+///
+/// `precacheImage` is not enough on its own: it only leaves an entry in the
+/// image cache, and a cache with no live listener is free to evict it before
+/// the pair ever reaches the screen — which is how a warmed matchup still
+/// arrives with a spinner on one card. An attached [ImageStreamListener] keeps
+/// the decoded image alive, and tells us when it is genuinely ready to paint.
+class _PairWarmup {
+  _PairWarmup({
+    required this.pairKey,
+    required List<ImageProvider> providers,
+    required ImageConfiguration configuration,
+  }) {
+    var pending = providers.length;
+
+    for (final provider in providers) {
+      final stream = provider.resolve(configuration);
+      var settled = false;
+
+      // A broken image settles too: its card shows an error placeholder, and
+      // holding the reveal open for it would help nobody.
+      void settle() {
+        if (settled) return;
+        settled = true;
+        if (--pending == 0 && !_ready.isCompleted) _ready.complete();
+      }
+
+      final listener = ImageStreamListener(
+        (_, _) => settle(),
+        onError: (_, _) => settle(),
+      );
+      stream.addListener(listener);
+      _listeners.add((stream, listener));
+    }
+  }
+
+  final String pairKey;
+  final _listeners = <(ImageStream, ImageStreamListener)>[];
+  final _ready = Completer<void>();
+
+  /// Completes once both images are decoded and resident.
+  Future<void> get ready => _ready.future;
+
+  void dispose() {
+    for (final (stream, listener) in _listeners) {
+      stream.removeListener(listener);
+    }
+    _listeners.clear();
+    if (!_ready.isCompleted) _ready.complete();
   }
 }
 
@@ -276,6 +403,7 @@ class _Arena extends StatelessWidget {
   const _Arena({
     required this.boardKey,
     required this.matchup,
+    required this.showGenreLabel,
     required this.winner,
     required this.highlighted,
     required this.bursts,
@@ -287,6 +415,7 @@ class _Arena extends StatelessWidget {
 
   final GlobalKey boardKey;
   final Matchup matchup;
+  final bool showGenreLabel;
   final VersusSide? winner;
   final VersusSide? highlighted;
   final List<EmojiBurst> bursts;
@@ -304,8 +433,9 @@ class _Arena extends StatelessWidget {
     return Column(
       children: [
         // Which genre this battle is in: the pair is always like against like,
-        // so one label covers both cards.
-        if (genre != null) ...[
+        // so one label covers both cards. Only worth showing while the arena
+        // is drawing from every category.
+        if (showGenreLabel && genre != null) ...[
           Text(genre.label.toUpperCase(), style: AppTextStyles.meta),
           const SizedBox(height: 8),
         ],
@@ -354,11 +484,29 @@ class _Arena extends StatelessWidget {
 }
 
 /// Shown once every available pairing has been judged.
+///
+/// A category filter makes this state easy to reach without the arena being
+/// anywhere near empty, so it says which pool ran out and offers the way back.
 class _ExhaustedArena extends ConsumerWidget {
-  const _ExhaustedArena();
+  const _ExhaustedArena({required this.filter});
+
+  final FitGenre? filter;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (filter != null) {
+      return AppEmptyState(
+        icon: CupertinoIcons.checkmark_seal,
+        title: 'Nothing left in ${filter!.label}',
+        message:
+            'You have judged every ${filter!.label.toLowerCase()} pairing '
+            'available to you. Try another category, or check back soon.',
+        actionLabel: 'Judge every category',
+        onAction: () =>
+            ref.read(arenaFilterControllerProvider.notifier).select(null),
+      );
+    }
+
     return AppEmptyState(
       icon: CupertinoIcons.checkmark_seal,
       title: 'You have judged everything',

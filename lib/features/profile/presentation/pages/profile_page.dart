@@ -46,6 +46,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           // the user edits what the profile tab already shows them.
           initialDisplayName: summary.profile.displayName ?? user?.displayName,
           initialUsername: summary.profile.username,
+          initialAvatarUrl: summary.profile.avatarUrl,
         ),
       ),
     );

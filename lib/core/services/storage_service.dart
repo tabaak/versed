@@ -6,14 +6,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'supabase_service.dart';
 
-/// Owns the `fits` storage bucket: the path convention, uploads and the public
-/// URLs the arena renders from.
+/// Owns the image buckets: the path conventions, uploads and the public URLs
+/// the app renders from.
 class StorageService {
   StorageService(this._client);
 
   final SupabaseClient _client;
 
   static const fitsBucket = 'fits';
+  static const avatarsBucket = 'avatars';
 
   static final _random = Random.secure();
 
@@ -40,6 +41,70 @@ class StorageService {
     required String ownerId,
     required Uint8List bytes,
     required String fileExtension,
+  }) {
+    return _upload(
+      bucket: fitsBucket,
+      ownerId: ownerId,
+      bytes: bytes,
+      fileExtension: fileExtension,
+    );
+  }
+
+  Future<void> removeFitImage(String path) async {
+    await _client.storage.from(fitsBucket).remove([path]);
+  }
+
+  /// Uploads an avatar and returns its public URL.
+  ///
+  /// Unlike a fit, the profile row stores the URL rather than the path:
+  /// `profiles.avatar_url` also holds Google's avatar for accounts that never
+  /// uploaded one, and both kinds are rendered the same way.
+  Future<String> uploadAvatarImage({
+    required String ownerId,
+    required Uint8List bytes,
+    required String fileExtension,
+  }) async {
+    final path = await _upload(
+      bucket: avatarsBucket,
+      ownerId: ownerId,
+      bytes: bytes,
+      fileExtension: fileExtension,
+    );
+
+    return _client.storage.from(avatarsBucket).getPublicUrl(path);
+  }
+
+  /// Deletes the object behind an avatar URL, if that URL is one of ours.
+  ///
+  /// A no-op for a Google avatar or anything else we did not store, so callers
+  /// can hand it whatever the profile row happened to hold.
+  Future<void> removeAvatarImage(String? url) async {
+    final path = avatarPathFromUrl(url);
+    if (path == null) return;
+
+    await _client.storage.from(avatarsBucket).remove([path]);
+  }
+
+  /// The storage path inside the avatars bucket for one of our public URLs,
+  /// or null when [url] points somewhere else.
+  static String? avatarPathFromUrl(String? url) {
+    if (url == null) return null;
+
+    const marker = '/object/public/$avatarsBucket/';
+    final start = url.indexOf(marker);
+    if (start == -1) return null;
+
+    // Supabase appends a cache-busting query on some URLs; the object name
+    // ends where it starts.
+    final path = url.substring(start + marker.length).split('?').first;
+    return path.isEmpty ? null : Uri.decodeComponent(path);
+  }
+
+  Future<String> _upload({
+    required String bucket,
+    required String ownerId,
+    required Uint8List bytes,
+    required String fileExtension,
   }) async {
     final extension = _normalizeExtension(fileExtension);
     final path =
@@ -47,7 +112,7 @@ class StorageService {
         '-${_random.nextInt(1 << 32)}.$extension';
 
     await _client.storage
-        .from(fitsBucket)
+        .from(bucket)
         .uploadBinary(
           path,
           bytes,
@@ -57,10 +122,6 @@ class StorageService {
         );
 
     return path;
-  }
-
-  Future<void> removeFitImage(String path) async {
-    await _client.storage.from(fitsBucket).remove([path]);
   }
 
   String _normalizeExtension(String fileExtension) {

@@ -61,7 +61,7 @@ lib/
 
 ## 🗄 Supabase
 
-Migrations live in `supabase/migrations/` (profiles, fits, votes/matchmaking, reports, profile stats, the `fits` storage bucket, distinct-owner matchups, and fit genres). See `supabase/README.md` for the migration workflow.
+Migrations live in `supabase/migrations/` (profiles, fits, votes/matchmaking, reports, profile stats, the `fits` storage bucket, distinct-owner matchups, fit genres, and the `avatars` storage bucket). See `supabase/README.md` for the migration workflow.
 
 ## 🔧 Tooling Scripts
 

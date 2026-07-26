@@ -39,6 +39,20 @@ void main() {
     });
   });
 
+  group('PickedFit.centeredSquareCrop', () {
+    test('takes the middle of a tall photo', () {
+      final crop = _photo(width: 400, height: 800).centeredSquareCrop;
+
+      expect(crop, const Rect.fromLTWH(0, 200, 400, 400));
+    });
+
+    test('takes the middle of a wide photo', () {
+      final crop = _photo(width: 1000, height: 500).centeredSquareCrop;
+
+      expect(crop, const Rect.fromLTWH(250, 0, 500, 500));
+    });
+  });
+
   group('ImageCropService', () {
     const service = ImageCropService();
 
@@ -82,5 +96,31 @@ void main() {
         expect(identical(cropped.bytes, source.bytes), isTrue);
       },
     );
+
+    test('shrinks the result to maxDimension', () async {
+      final source = _photo(width: 1200, height: 1200);
+
+      final cropped = await service.crop(
+        source: source,
+        crop: source.centeredSquareCrop,
+        maxDimension: 512,
+      );
+
+      expect(cropped.width, 512);
+      expect(cropped.height, 512);
+      expect(img.decodeJpg(cropped.bytes)?.width, 512);
+    });
+
+    test('leaves a photo already inside maxDimension alone', () async {
+      final source = _photo(width: 300, height: 300);
+
+      final cropped = await service.crop(
+        source: source,
+        crop: source.centeredSquareCrop,
+        maxDimension: 512,
+      );
+
+      expect(identical(cropped.bytes, source.bytes), isTrue);
+    });
   });
 }

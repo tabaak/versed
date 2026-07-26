@@ -37,6 +37,13 @@ class PickedFit {
     );
   }
 
+  /// The largest square that fits the photo, centered — the framing an avatar
+  /// gets, since nothing lets the user drag it yet.
+  Rect get centeredSquareCrop {
+    final side = (width < height ? width : height).toDouble();
+    return Rect.fromLTWH((width - side) / 2, (height - side) / 2, side, side);
+  }
+
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||

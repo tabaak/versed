@@ -3,17 +3,25 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/utils/error_messages.dart';
 import '../../../../core/utils/text_input_formatters.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_image_cropper.dart';
 import '../../../../core/widgets/app_list_view.dart';
+import '../../../../core/widgets/app_modal.dart';
 import '../../../../core/widgets/app_navigation_bar.dart';
+import '../../../../core/widgets/app_notification.dart';
 import '../../../../core/widgets/app_text_field.dart';
+import '../../../upload/models/upload_state.dart';
+import '../../../upload/services/image_pick_service.dart';
 import '../../controllers/profile_controller.dart';
 import '../widgets/handle_availability_hint.dart';
+import '../widgets/profile_avatar.dart';
 
 /// Edits the two identity fields the user owns: display name and handle.
 ///
@@ -23,11 +31,13 @@ class EditProfilePage extends ConsumerStatefulWidget {
   const EditProfilePage({
     required this.initialDisplayName,
     required this.initialUsername,
+    this.initialAvatarUrl,
     super.key,
   });
 
   final String? initialDisplayName;
   final String? initialUsername;
+  final String? initialAvatarUrl;
 
   @override
   ConsumerState<EditProfilePage> createState() => _EditProfilePageState();
@@ -45,6 +55,18 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
   String? _nameError;
   bool _isSaving = false;
 
+  /// A photo picked on device. It is cropped and uploaded by the save, not by
+  /// the picker, so backing out of the page costs nothing.
+  PickedFit? _pickedAvatar;
+
+  /// Set by "Remove photo", and cleared again by picking a new one.
+  bool _removeAvatar = false;
+
+  /// The square region of [_pickedAvatar] the cropper is showing, in source
+  /// pixels. Null until the cropper reports a frame; the controller falls back
+  /// to a centered square.
+  Rect? _avatarCrop;
+
   /// Guards against a slow availability response landing after a newer one.
   int _checkGeneration = 0;
 
@@ -56,7 +78,18 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
 
   String get _initialName => widget.initialDisplayName?.trim() ?? '';
 
-  bool get _hasChanges => _handle != _initialHandle || _name != _initialName;
+  /// The photo the page is showing: the staged pick, else the saved one
+  /// unless it is on its way out.
+  String? get _shownAvatarUrl =>
+      _removeAvatar ? null : widget.initialAvatarUrl;
+
+  bool get _hasAvatar => _pickedAvatar != null || _shownAvatarUrl != null;
+
+  bool get _hasChanges =>
+      _handle != _initialHandle ||
+      _name != _initialName ||
+      _pickedAvatar != null ||
+      _removeAvatar;
 
   bool get _canSave =>
       !_isSaving &&
@@ -78,6 +111,63 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     _nameController.dispose();
     _handleController.dispose();
     super.dispose();
+  }
+
+  Future<void> _showPhotoActions() async {
+    if (_isSaving) return;
+
+    await AppModal.showActionSheet<void>(
+      context: context,
+      title: 'Profile photo',
+      message: 'You frame it yourself. It is shown next to your handle.',
+      actions: [
+        CupertinoActionSheetAction(
+          onPressed: () {
+            Navigator.of(context).pop();
+            _pickAvatar(ImageSource.gallery);
+          },
+          child: const Text('Choose from library'),
+        ),
+        CupertinoActionSheetAction(
+          onPressed: () {
+            Navigator.of(context).pop();
+            _pickAvatar(ImageSource.camera);
+          },
+          child: const Text('Take photo'),
+        ),
+        if (_hasAvatar)
+          CupertinoActionSheetAction(
+            isDestructiveAction: true,
+            onPressed: () {
+              Navigator.of(context).pop();
+              setState(() {
+                _pickedAvatar = null;
+                _avatarCrop = null;
+                _removeAvatar = true;
+              });
+            },
+            child: const Text('Remove photo'),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _pickAvatar(ImageSource source) async {
+    try {
+      final picked = await ref.read(imagePickServiceProvider).pick(source);
+      // A null pick means the user backed out — not a failure.
+      if (picked == null || !mounted) return;
+
+      setState(() {
+        _pickedAvatar = picked;
+        // A fresh photo is a fresh frame; the cropper reports one on layout.
+        _avatarCrop = null;
+        _removeAvatar = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      AppToast.error(context: context, message: describeError(error));
+    }
   }
 
   void _handleNameChanged(String raw) {
@@ -141,7 +231,13 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
 
     final failure = await ref
         .read(profileControllerProvider.notifier)
-        .updateProfile(username: _handle, displayName: _name);
+        .updateProfile(
+          username: _handle,
+          displayName: _name,
+          avatar: _pickedAvatar,
+          avatarCrop: _avatarCrop,
+          removeAvatar: _removeAvatar,
+        );
 
     if (!mounted) return;
 
@@ -175,6 +271,28 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
             child: AppListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
               children: [
+                Center(
+                  child: Column(
+                    children: [
+                      _AvatarField(
+                        picked: _pickedAvatar,
+                        avatarUrl: _shownAvatarUrl,
+                        name: _name.isEmpty ? _handle : _name,
+                        enabled: !_isSaving,
+                        onCropChanged: (crop) => _avatarCrop = crop,
+                        onTap: _showPhotoActions,
+                      ),
+                      const SizedBox(height: 12),
+                      AppButton(
+                        label: _hasAvatar ? 'Change photo' : 'Add photo',
+                        variant: AppButtonVariant.secondary,
+                        expand: false,
+                        onPressed: _isSaving ? null : _showPhotoActions,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 28),
                 const _FieldLabel('Display name'),
                 const SizedBox(height: 8),
                 AppTextField(
@@ -233,6 +351,60 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The profile photo, in whichever of its two states applies: a staged pick
+/// the user can still frame, or the saved one waiting to be replaced.
+class _AvatarField extends StatelessWidget {
+  const _AvatarField({
+    required this.picked,
+    required this.avatarUrl,
+    required this.name,
+    required this.enabled,
+    required this.onCropChanged,
+    required this.onTap,
+  });
+
+  /// How wide the square cropper is drawn. Wide enough to frame against,
+  /// short enough that the fields below stay on screen.
+  static const _cropperWidth = 240.0;
+
+  final PickedFit? picked;
+  final String? avatarUrl;
+  final String name;
+  final bool enabled;
+  final ValueChanged<Rect> onCropChanged;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final picked = this.picked;
+    if (picked == null) {
+      return GestureDetector(
+        onTap: onTap,
+        child: Semantics(
+          button: true,
+          label: 'Profile photo',
+          child: ProfileAvatar(name: name, url: avatarUrl, size: 96),
+        ),
+      );
+    }
+
+    return SizedBox(
+      width: _cropperWidth,
+      child: AppImageCropper(
+        bytes: picked.bytes,
+        imageWidth: picked.width,
+        imageHeight: picked.height,
+        aspectRatio: 1,
+        circular: true,
+        enabled: enabled,
+        onCropChanged: onCropChanged,
+        semanticLabel: 'Your new photo. Drag or pinch to frame it.',
+        caption: 'Drag or pinch to frame. Profiles are cropped to a circle.',
       ),
     );
   }

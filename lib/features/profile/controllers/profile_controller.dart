@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -6,11 +7,17 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/utils/error_messages.dart';
 import '../../../core/utils/validators.dart';
 import '../../auth/controllers/auth_controller.dart';
+import '../../upload/models/upload_state.dart';
+import '../../upload/services/image_crop_service.dart';
 import '../models/profile_model.dart';
 import '../services/profile_service.dart';
 
 /// The signed-in user's profile row and battle record. Null while signed out.
 class ProfileController extends AsyncNotifier<ProfileSummary?> {
+  /// Avatars are never rendered above 72pt, so anything past this is bytes
+  /// nobody sees — and the bucket's 5 MB cap is generous for it.
+  static const _avatarSize = 512;
+
   @override
   Future<ProfileSummary?> build() async {
     final user = ref.watch(authControllerProvider).value;
@@ -53,9 +60,18 @@ class ProfileController extends AsyncNotifier<ProfileSummary?> {
 
   /// Saves the profile edits. Returns null on success, or the reason it
   /// failed.
+  ///
+  /// [avatar] replaces the profile photo and [removeAvatar] clears it; with
+  /// neither, whatever the profile already has survives the save.
+  ///
+  /// [avatarCrop] is the square region of [avatar] the user framed, in source
+  /// pixels; without one the photo is cropped from its centre.
   Future<String?> updateProfile({
     required String username,
     required String? displayName,
+    PickedFit? avatar,
+    Rect? avatarCrop,
+    bool removeAvatar = false,
   }) async {
     final normalizedUsername = username.trim().toLowerCase();
     final trimmedName = displayName?.trim();
@@ -72,28 +88,69 @@ class ProfileController extends AsyncNotifier<ProfileSummary?> {
     if (user == null) return 'Sign in again to continue.';
 
     final summary = state.value;
+    final service = ref.read(profileServiceProvider);
+    final previousAvatarUrl = summary?.profile.avatarUrl;
+
+    // Uploaded before the row is written, so the profile never points at a
+    // file that does not exist. Cleaned up below if the write fails.
+    String? uploadedAvatarUrl;
 
     try {
-      final profile = await ref
-          .read(profileServiceProvider)
-          .updateProfile(
-            id: user.id,
-            username: normalizedUsername,
-            displayName: normalizedName,
-          );
+      if (avatar != null) {
+        final square = await ref
+            .read(imageCropServiceProvider)
+            .crop(
+              source: avatar,
+              crop: avatarCrop ?? avatar.centeredSquareCrop,
+              maxDimension: _avatarSize,
+            );
+
+        uploadedAvatarUrl = await service.uploadAvatar(
+          ownerId: user.id,
+          bytes: square.bytes,
+          fileExtension: square.fileExtension,
+        );
+      }
+
+      final avatarUrl = switch (avatar) {
+        null when removeAvatar => null,
+        null => previousAvatarUrl,
+        _ => uploadedAvatarUrl,
+      };
+
+      final profile = await service.updateProfile(
+        id: user.id,
+        username: normalizedUsername,
+        displayName: normalizedName,
+        avatarUrl: avatarUrl,
+      );
 
       state = AsyncData(
         summary == null
             ? ProfileSummary(profile: profile, stats: ProfileStats.empty)
             : summary.copyWith(profile: profile),
       );
+
+      // The old photo is only unreachable once the row stopped pointing at it.
+      if (avatarUrl != previousAvatarUrl) {
+        await service.removeAvatar(previousAvatarUrl).catchError((_) {});
+      }
       return null;
     } on PostgrestException catch (error) {
+      await _discardUpload(service, uploadedAvatarUrl);
       if (error.code == '23505') return 'That handle is taken.';
       return describeError(error);
     } catch (error) {
+      await _discardUpload(service, uploadedAvatarUrl);
       return describeError(error);
     }
+  }
+
+  /// Removes an avatar that was uploaded for a save that then failed, so a
+  /// rejected handle does not leave a file behind.
+  Future<void> _discardUpload(ProfileService service, String? url) async {
+    if (url == null) return;
+    await service.removeAvatar(url).catchError((_) {});
   }
 
   Future<bool> isUsernameAvailable(String username) {

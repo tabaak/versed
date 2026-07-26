@@ -1,13 +1,17 @@
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/services/storage_service.dart';
 import '../../../core/services/supabase_service.dart';
 import '../models/profile_model.dart';
 
 class ProfileService {
-  ProfileService(this._client);
+  ProfileService(this._client, this._storage);
 
   final SupabaseClient _client;
+  final StorageService _storage;
 
   static const _table = 'profiles';
   static const _columns = 'id, username, display_name, avatar_url, created_at';
@@ -73,8 +77,9 @@ class ProfileService {
     return Profile.fromJson(row);
   }
 
-  /// Saves the editable identity fields in one write. A null [displayName]
-  /// clears the column, which sends the profile back to its handle.
+  /// Saves the editable identity fields in one write. A null [displayName] or
+  /// [avatarUrl] clears that column, which sends the profile back to its
+  /// handle and its monogram respectively.
   ///
   /// Throws a [PostgrestException] with code `23505` when the handle was
   /// claimed by someone else first.
@@ -82,18 +87,46 @@ class ProfileService {
     required String id,
     required String username,
     required String? displayName,
+    required String? avatarUrl,
   }) async {
     final row = await _client
         .from(_table)
-        .update({'username': username, 'display_name': displayName})
+        .update({
+          'username': username,
+          'display_name': displayName,
+          'avatar_url': avatarUrl,
+        })
         .eq('id', id)
         .select(_columns)
         .single();
 
     return Profile.fromJson(row);
   }
+
+  /// Uploads a new avatar and returns the URL to store on the profile.
+  ///
+  /// The profile row is updated afterwards, so a failed save leaves an orphan
+  /// file the caller is expected to remove with [removeAvatar].
+  Future<String> uploadAvatar({
+    required String ownerId,
+    required Uint8List bytes,
+    required String fileExtension,
+  }) {
+    return _storage.uploadAvatarImage(
+      ownerId: ownerId,
+      bytes: bytes,
+      fileExtension: fileExtension,
+    );
+  }
+
+  /// Purges an avatar we stored. Anything else — a Google avatar, say — is
+  /// left alone.
+  Future<void> removeAvatar(String? url) => _storage.removeAvatarImage(url);
 }
 
 final profileServiceProvider = Provider<ProfileService>((ref) {
-  return ProfileService(ref.watch(supabaseClientProvider));
+  return ProfileService(
+    ref.watch(supabaseClientProvider),
+    ref.watch(storageServiceProvider),
+  );
 });

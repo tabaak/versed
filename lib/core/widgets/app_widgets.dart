@@ -1,6 +1,7 @@
 export 'app_button.dart';
 export 'app_empty_state.dart';
 export 'app_icon_button.dart';
+export 'app_image_cropper.dart';
 export 'app_list_view.dart';
 export 'app_modal.dart';
 export 'app_navigation_bar.dart';

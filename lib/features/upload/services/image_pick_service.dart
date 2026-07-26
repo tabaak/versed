@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -28,10 +31,27 @@ class ImagePickService {
 
     if (file == null) return null;
 
+    final bytes = await file.readAsBytes();
+    final size = await _sizeOf(bytes);
+
     return PickedFit(
-      bytes: await file.readAsBytes(),
+      bytes: bytes,
       fileExtension: _extensionOf(file.name),
+      width: size.width,
+      height: size.height,
     );
+  }
+
+  /// Reads the dimensions the cropper frames against straight from the image
+  /// header, without decoding a single pixel.
+  Future<({int width, int height})> _sizeOf(Uint8List bytes) async {
+    final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+    final descriptor = await ui.ImageDescriptor.encoded(buffer);
+    try {
+      return (width: descriptor.width, height: descriptor.height);
+    } finally {
+      descriptor.dispose();
+    }
   }
 
   String _extensionOf(String fileName) {

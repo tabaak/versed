@@ -17,6 +17,7 @@ import '../widgets/profile_fits_grid.dart';
 import '../widgets/profile_header.dart';
 import '../widgets/profile_settings_section.dart';
 import '../widgets/profile_stats_row.dart';
+import 'edit_profile_page.dart';
 
 /// The user's profile: identity, battle record, fits, and settings.
 class ProfilePage extends ConsumerStatefulWidget {
@@ -34,6 +35,23 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
   void _showComingSoon(String label) {
     AppToast.show(context: context, message: '$label is coming soon.');
+  }
+
+  Future<void> _editProfile(ProfileSummary summary) async {
+    final user = ref.read(authControllerProvider).value;
+    final saved = await Navigator.of(context).push<bool>(
+      CupertinoPageRoute<bool>(
+        builder: (_) => EditProfilePage(
+          // Google's name seeds the field when the profile row has none, so
+          // the user edits what the profile tab already shows them.
+          initialDisplayName: summary.profile.displayName ?? user?.displayName,
+          initialUsername: summary.profile.username,
+        ),
+      ),
+    );
+
+    if (saved != true || !mounted) return;
+    AppToast.success(context: context, message: 'Profile updated.');
   }
 
   Future<void> _confirmSignOut() async {
@@ -101,6 +119,10 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       navigationBar: const CupertinoNavigationBar(
         middle: Text('VERSED', style: AppTextStyles.wordmark),
         border: null,
+        // The shell keeps every tab alive at once, so each tab's bar would
+        // otherwise claim the same nav-bar hero tag and collide when the edit
+        // page is pushed.
+        transitionBetweenRoutes: false,
       ),
       child: SafeArea(
         child: summary.when(
@@ -130,7 +152,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               onPublicProfileChanged: (value) =>
                   setState(() => _publicProfile = value),
               onRowTap: _showComingSoon,
-              onEditProfile: () => _showComingSoon('Editing your profile'),
+              onEditProfile: () => _editProfile(data),
               onSignOut: _confirmSignOut,
               isSigningOut: _isSigningOut,
               onFitTap: _confirmDeleteFit,

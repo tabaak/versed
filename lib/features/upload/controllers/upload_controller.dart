@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -5,6 +7,7 @@ import '../../../core/utils/error_messages.dart';
 import '../../fits/controllers/my_fits_controller.dart';
 import '../../fits/models/fit_genre.dart';
 import '../models/upload_state.dart';
+import '../services/image_crop_service.dart';
 import '../services/image_pick_service.dart';
 
 /// Drives the upload tab: stage a photo, then send it to the arena.
@@ -30,6 +33,14 @@ class UploadController extends Notifier<UploadState> {
     }
   }
 
+  /// Records the 4:5 region the cropper is showing, in source pixels. Cheap
+  /// enough to call on every gesture frame: nothing is re-encoded until
+  /// [submit].
+  void setCrop(Rect crop) {
+    if (state.picked == null || state.isUploading || state.crop == crop) return;
+    state = state.copyWith(crop: crop);
+  }
+
   void selectGenre(FitGenre genre) {
     if (state.isUploading) return;
     state = state.copyWith(genre: genre);
@@ -40,20 +51,28 @@ class UploadController extends Notifier<UploadState> {
     state = UploadState.initial;
   }
 
-  /// Uploads the staged photo and adds the fit to the user's grid.
+  /// Crops the staged photo to what the user framed, then uploads it and adds
+  /// the fit to the user's grid.
   Future<String?> submit() async {
     final picked = state.picked;
     final genre = state.genre;
-    if (picked == null || genre == null || state.isUploading) return null;
+    final crop = state.cropOrCentered;
+    if (picked == null || genre == null || crop == null || state.isUploading) {
+      return null;
+    }
 
     state = state.copyWith(isUploading: true);
 
     try {
+      final cropped = await ref
+          .read(imageCropServiceProvider)
+          .crop(source: picked, crop: crop);
+
       await ref
           .read(myFitsControllerProvider.notifier)
           .addFit(
-            bytes: picked.bytes,
-            fileExtension: picked.fileExtension,
+            bytes: cropped.bytes,
+            fileExtension: cropped.fileExtension,
             genre: genre,
           );
 

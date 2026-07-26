@@ -9,7 +9,7 @@ import '../../../../core/widgets/app_modal.dart';
 import '../../../../core/widgets/app_notification.dart';
 import '../../../fits/models/fit_genre.dart';
 import '../../controllers/upload_controller.dart';
-import '../widgets/fit_preview.dart';
+import '../widgets/fit_cropper.dart';
 import '../widgets/genre_picker.dart';
 
 /// Submits an outfit photo into the arena.
@@ -47,6 +47,10 @@ class _UploadPageState extends ConsumerState<UploadPage> {
     AppToast.error(context: context, message: failure);
   }
 
+  void _setCrop(Rect crop) {
+    ref.read(uploadControllerProvider.notifier).setCrop(crop);
+  }
+
   void _selectGenre(FitGenre genre) {
     ref.read(uploadControllerProvider.notifier).selectGenre(genre);
   }
@@ -71,6 +75,10 @@ class _UploadPageState extends ConsumerState<UploadPage> {
       navigationBar: const CupertinoNavigationBar(
         middle: Text('VERSED', style: AppTextStyles.wordmark),
         border: null,
+        // The shell keeps every tab alive at once, so each tab's bar would
+        // otherwise claim the same nav-bar hero tag and collide the moment a
+        // route is pushed.
+        transitionBetweenRoutes: false,
       ),
       child: SafeArea(
         child: Padding(
@@ -86,7 +94,13 @@ class _UploadPageState extends ConsumerState<UploadPage> {
                 )
               : Column(
                   children: [
-                    Expanded(child: FitPreview(bytes: picked.bytes)),
+                    Expanded(
+                      child: FitCropper(
+                        picked: picked,
+                        enabled: !state.isUploading,
+                        onCropChanged: _setCrop,
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     GenrePicker(
                       selected: state.genre,

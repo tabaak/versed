@@ -39,6 +39,9 @@ dependencies:
   go_router: ^17.3.0
   shared_preferences: ^2.5.5
   image_picker: ^1.2.0
+  # Pure-Dart decode/crop/encode, so the 4:5 crop runs in an isolate without a
+  # platform channel.
+  image: ^4.9.1
 
 dev_dependencies:
   flutter_test:

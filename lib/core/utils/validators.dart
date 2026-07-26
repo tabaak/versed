@@ -27,3 +27,18 @@ String? usernameError(String username) {
   }
   return null;
 }
+
+const int displayNameMaxLength = 40;
+
+/// Returns null when [displayName] is acceptable, otherwise the reason it is
+/// not.
+///
+/// An empty name is acceptable: `display_name` is nullable, and the profile
+/// falls back to the handle when there is none.
+String? displayNameError(String? displayName) {
+  final trimmed = displayName?.trim() ?? '';
+  if (trimmed.length > displayNameMaxLength) {
+    return 'At most $displayNameMaxLength characters.';
+  }
+  return null;
+}

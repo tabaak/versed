@@ -72,6 +72,26 @@ class ProfileService {
 
     return Profile.fromJson(row);
   }
+
+  /// Saves the editable identity fields in one write. A null [displayName]
+  /// clears the column, which sends the profile back to its handle.
+  ///
+  /// Throws a [PostgrestException] with code `23505` when the handle was
+  /// claimed by someone else first.
+  Future<Profile> updateProfile({
+    required String id,
+    required String username,
+    required String? displayName,
+  }) async {
+    final row = await _client
+        .from(_table)
+        .update({'username': username, 'display_name': displayName})
+        .eq('id', id)
+        .select(_columns)
+        .single();
+
+    return Profile.fromJson(row);
+  }
 }
 
 final profileServiceProvider = Provider<ProfileService>((ref) {

@@ -17,10 +17,12 @@ class AppTabBar extends StatelessWidget {
   });
 
   final AppTab activeTab;
+
+  /// Fires on every tap, including a tap on the tab that is already active —
+  /// a re-tap is how a tab is reset to its starting screen.
   final ValueChanged<AppTab> onTabSelected;
 
   void _select(AppTab tab) {
-    if (tab == activeTab) return;
     HapticFeedback.selectionClick();
     onTabSelected(tab);
   }

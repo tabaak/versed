@@ -51,6 +51,51 @@ class ProfileController extends AsyncNotifier<ProfileSummary?> {
     }
   }
 
+  /// Saves the profile edits. Returns null on success, or the reason it
+  /// failed.
+  Future<String?> updateProfile({
+    required String username,
+    required String? displayName,
+  }) async {
+    final normalizedUsername = username.trim().toLowerCase();
+    final trimmedName = displayName?.trim();
+    // An empty field means "no display name", not an empty one.
+    final normalizedName = (trimmedName == null || trimmedName.isEmpty)
+        ? null
+        : trimmedName;
+
+    final invalid =
+        usernameError(normalizedUsername) ?? displayNameError(normalizedName);
+    if (invalid != null) return invalid;
+
+    final user = ref.read(authControllerProvider).value;
+    if (user == null) return 'Sign in again to continue.';
+
+    final summary = state.value;
+
+    try {
+      final profile = await ref
+          .read(profileServiceProvider)
+          .updateProfile(
+            id: user.id,
+            username: normalizedUsername,
+            displayName: normalizedName,
+          );
+
+      state = AsyncData(
+        summary == null
+            ? ProfileSummary(profile: profile, stats: ProfileStats.empty)
+            : summary.copyWith(profile: profile),
+      );
+      return null;
+    } on PostgrestException catch (error) {
+      if (error.code == '23505') return 'That handle is taken.';
+      return describeError(error);
+    } catch (error) {
+      return describeError(error);
+    }
+  }
+
   Future<bool> isUsernameAvailable(String username) {
     return ref
         .read(profileServiceProvider)

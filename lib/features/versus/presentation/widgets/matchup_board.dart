@@ -7,6 +7,61 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../models/matchup.dart';
 import 'versus_contender.dart';
 
+/// Where the two cards and the VS badge sit for a given board size.
+///
+/// Shared with the loading skeleton so the placeholders occupy exactly the
+/// space the real cards will, and the swap is a cross-fade with no reflow.
+class MatchupBoardMetrics {
+  factory MatchupBoardMetrics(BoxConstraints constraints) {
+    final cardWidth = min(
+      0.72 * constraints.maxWidth,
+      constraints.maxHeight * _aspectRatio / (2 - _overlapFraction),
+    );
+    final cardHeight = cardWidth / _aspectRatio;
+    final pairHeight = (2 - _overlapFraction) * cardHeight;
+
+    return MatchupBoardMetrics._(
+      cardWidth: cardWidth,
+      cardHeight: cardHeight,
+      pairHeight: pairHeight,
+      // Anchor the pair near the top; leftover space stays at the bottom.
+      topInset: min((constraints.maxHeight - pairHeight) / 2, 12.0),
+      boardWidth: constraints.maxWidth,
+    );
+  }
+
+  const MatchupBoardMetrics._({
+    required this.cardWidth,
+    required this.cardHeight,
+    required this.pairHeight,
+    required this.topInset,
+    required this.boardWidth,
+  });
+
+  // Cards sit diagonally (bottom-left vs top-right) and overlap a little
+  // vertically, so each one can be far larger than in a side-by-side split.
+  static const _aspectRatio = 4 / 5;
+  static const _overlapFraction = 0.06;
+
+  final double cardWidth;
+  final double cardHeight;
+  final double pairHeight;
+  final double topInset;
+  final double boardWidth;
+
+  /// Top of the bottom-left card.
+  double get leftCardTop => topInset + (1 - _overlapFraction) * cardHeight;
+
+  /// Top-left of the VS badge, in the free column right of the bottom card and
+  /// level with the seam between the two cards.
+  Offset get badgeOffset => Offset(
+    cardWidth - 44 + (boardWidth - cardWidth) / 2 + 2,
+    topInset + pairHeight / 2 - 16 + 31,
+  );
+
+  static const badgeSize = Size(44, 32);
+}
+
 /// The diagonal two-card board: bottom-left versus top-right, VS badge at the
 /// seam.
 class MatchupBoard extends StatelessWidget {
@@ -35,27 +90,14 @@ class MatchupBoard extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Cards sit diagonally (bottom-left vs top-right) and overlap a
-        // little vertically, so each one can be far larger than in a
-        // side-by-side split.
-        const aspectRatio = 4 / 5;
-        const overlapFraction = 0.06;
-
-        final cardWidth = min(
-          0.72 * constraints.maxWidth,
-          constraints.maxHeight * aspectRatio / (2 - overlapFraction),
-        );
-        final cardHeight = cardWidth / aspectRatio;
-        final pairHeight = (2 - overlapFraction) * cardHeight;
-        // Anchor the pair near the top; leftover space stays at the bottom.
-        final topInset = min((constraints.maxHeight - pairHeight) / 2, 12.0);
+        final metrics = MatchupBoardMetrics(constraints);
 
         final leftCard = Positioned(
           key: const ValueKey(VersusSide.left),
           left: 0,
-          top: topInset + (1 - overlapFraction) * cardHeight,
-          width: cardWidth,
-          height: cardHeight,
+          top: metrics.leftCardTop,
+          width: metrics.cardWidth,
+          height: metrics.cardHeight,
           child: VersusContender(
             imagePath: matchup.left.imagePath,
             isWinner: winner == VersusSide.left,
@@ -63,6 +105,7 @@ class MatchupBoard extends StatelessWidget {
             isHighlighted: highlighted == VersusSide.left,
             isDimmed: highlighted == VersusSide.right,
             duration: duration,
+            skeletonPhase: 0.12,
             semanticLabel: 'Bottom left outfit',
             onTapDown: (globalPosition) =>
                 onTapDown(VersusSide.left, globalPosition),
@@ -72,9 +115,9 @@ class MatchupBoard extends StatelessWidget {
         final rightCard = Positioned(
           key: const ValueKey(VersusSide.right),
           right: 0,
-          top: topInset,
-          width: cardWidth,
-          height: cardHeight,
+          top: metrics.topInset,
+          width: metrics.cardWidth,
+          height: metrics.cardHeight,
           child: VersusContender(
             imagePath: matchup.right.imagePath,
             isWinner: winner == VersusSide.right,
@@ -82,6 +125,7 @@ class MatchupBoard extends StatelessWidget {
             isHighlighted: highlighted == VersusSide.right,
             isDimmed: highlighted == VersusSide.left,
             duration: duration,
+            skeletonPhase: 0,
             semanticLabel: 'Top right outfit',
             onTapDown: (globalPosition) =>
                 onTapDown(VersusSide.right, globalPosition),
@@ -104,19 +148,17 @@ class MatchupBoard extends StatelessWidget {
               leftCard,
               rightCard,
             ],
-            // The badge sits in the free column right of the bottom card,
-            // level with the seam between the two cards.
             Positioned(
-              left: cardWidth - 44 + (constraints.maxWidth - cardWidth) / 2 + 2,
-              top: topInset + pairHeight / 2 - 16 + 31,
+              left: metrics.badgeOffset.dx,
+              top: metrics.badgeOffset.dy,
               child: AnimatedOpacity(
                 duration: animationsDisabled
                     ? Duration.zero
                     : const Duration(milliseconds: 150),
                 opacity: winner == null ? 1 : 0,
                 child: Container(
-                  width: 44,
-                  height: 32,
+                  width: MatchupBoardMetrics.badgeSize.width,
+                  height: MatchupBoardMetrics.badgeSize.height,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: AppColors.accent,

@@ -12,6 +12,7 @@ class VersusContender extends StatelessWidget {
     required this.isHighlighted,
     required this.isDimmed,
     required this.duration,
+    required this.skeletonPhase,
     required this.semanticLabel,
     required this.onTapDown,
     required this.onLongPress,
@@ -26,6 +27,10 @@ class VersusContender extends StatelessWidget {
   /// True while the *other* card is highlighted, so this one recedes.
   final bool isDimmed;
   final Duration duration;
+
+  /// Offset into the loading shimmer, so the two cards do not sweep in
+  /// lockstep while their photos land.
+  final double skeletonPhase;
   final String semanticLabel;
   final ValueChanged<Offset> onTapDown;
   final VoidCallback onLongPress;
@@ -83,7 +88,12 @@ class VersusContender extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    ExcludeSemantics(child: FitImage(imagePath: imagePath)),
+                    ExcludeSemantics(
+                      child: FitImage(
+                        imagePath: imagePath,
+                        phase: skeletonPhase,
+                      ),
+                    ),
                     AnimatedContainer(
                       duration: duration,
                       curve: Curves.easeOut,

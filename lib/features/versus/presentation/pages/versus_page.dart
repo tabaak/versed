@@ -21,6 +21,7 @@ import '../../models/matchup.dart';
 import '../widgets/arena_genre_bar.dart';
 import '../widgets/emoji_burst.dart';
 import '../widgets/matchup_board.dart';
+import '../widgets/matchup_board_skeleton.dart';
 
 /// Main matchup screen: two outfits battle, double-tap picks the winner.
 class VersusPage extends ConsumerStatefulWidget {
@@ -305,36 +306,54 @@ class _VersusPageState extends ConsumerState<VersusPage> {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: versusState.when(
-                  loading: () =>
-                      const Center(child: CupertinoActivityIndicator()),
-                  error: (error, _) => AppEmptyState(
-                    icon: CupertinoIcons.exclamationmark_triangle,
-                    title: 'The arena is out of reach',
-                    message: describeError(error),
-                    actionLabel: 'Try again',
-                    onAction: () =>
-                        ref.read(versusControllerProvider.notifier).reload(),
-                  ),
-                  data: (state) {
-                    final matchup = state.current;
-                    if (matchup == null) return _ExhaustedArena(filter: filter);
+                child: AnimatedSwitcher(
+                  // The first pair arrives into the shape the skeleton was
+                  // already holding, so the arena settles in rather than
+                  // snapping from a spinner to a full board.
+                  duration: MediaQuery.disableAnimationsOf(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 350),
+                  switchInCurve: Curves.easeOut,
+                  switchOutCurve: Curves.easeIn,
+                  child: versusState.when(
+                    loading: () => const MatchupBoardSkeleton(
+                      key: ValueKey('arena-skeleton'),
+                    ),
+                    error: (error, _) => AppEmptyState(
+                      key: const ValueKey('arena-error'),
+                      icon: CupertinoIcons.exclamationmark_triangle,
+                      title: 'The arena is out of reach',
+                      message: describeError(error),
+                      actionLabel: 'Try again',
+                      onAction: () =>
+                          ref.read(versusControllerProvider.notifier).reload(),
+                    ),
+                    data: (state) {
+                      final matchup = state.current;
+                      if (matchup == null) {
+                        return _ExhaustedArena(
+                          key: const ValueKey('arena-exhausted'),
+                          filter: filter,
+                        );
+                      }
 
-                    return _Arena(
-                      boardKey: _boardKey,
-                      matchup: matchup,
-                      // The strip already names the category when one is
-                      // picked; repeating it over the board says nothing.
-                      showGenreLabel: filter == null,
-                      winner: _winner,
-                      highlighted: _highlighted,
-                      bursts: _bursts,
-                      showHint: _showHint,
-                      onTapDown: _handleTapDown,
-                      onLongPress: _reportFit,
-                      onBurstCompleted: _removeBurst,
-                    );
-                  },
+                      return _Arena(
+                        key: const ValueKey('arena-board'),
+                        boardKey: _boardKey,
+                        matchup: matchup,
+                        // The strip already names the category when one is
+                        // picked; repeating it over the board says nothing.
+                        showGenreLabel: filter == null,
+                        winner: _winner,
+                        highlighted: _highlighted,
+                        bursts: _bursts,
+                        showHint: _showHint,
+                        onTapDown: _handleTapDown,
+                        onLongPress: _reportFit,
+                        onBurstCompleted: _removeBurst,
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
@@ -411,6 +430,7 @@ class _Arena extends StatelessWidget {
     required this.onTapDown,
     required this.onLongPress,
     required this.onBurstCompleted,
+    super.key,
   });
 
   final GlobalKey boardKey;
@@ -583,7 +603,7 @@ class _GenreRevealBannerState extends State<_GenreRevealBanner> {
 /// A category filter makes this state easy to reach without the arena being
 /// anywhere near empty, so it says which pool ran out and offers the way back.
 class _ExhaustedArena extends ConsumerWidget {
-  const _ExhaustedArena({required this.filter});
+  const _ExhaustedArena({required this.filter, super.key});
 
   final FitGenre? filter;
 

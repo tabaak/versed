@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/services/storage_service.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_skeleton.dart';
 
 /// Widest a fit is ever decoded at, in physical pixels.
 ///
@@ -24,10 +25,19 @@ ImageProvider fitImageProvider(String url) {
 /// Resolving the public URL lives here so pages and grids never have to reach
 /// for the storage service themselves.
 class FitImage extends ConsumerWidget {
-  const FitImage({required this.imagePath, this.semanticLabel, super.key});
+  const FitImage({
+    required this.imagePath,
+    this.semanticLabel,
+    this.phase = 0,
+    super.key,
+  });
 
   final String imagePath;
   final String? semanticLabel;
+
+  /// Shimmer offset for the loading skeleton, so two photos side by side do
+  /// not sweep in lockstep. See [AppSkeleton.phase].
+  final double phase;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -40,35 +50,34 @@ class FitImage extends ConsumerWidget {
       height: double.infinity,
       filterQuality: FilterQuality.medium,
       semanticLabel: semanticLabel,
+      // Skeleton first, then a cross-fade into the photo. An image already in
+      // the cache reports `progress == null` on the very first call, so the
+      // switcher starts on the photo and nothing flashes.
       loadingBuilder: (context, child, progress) {
-        if (progress == null) return child;
-        return const _FitImagePlaceholder(
-          child: CupertinoActivityIndicator(radius: 10),
+        final loaded = progress == null;
+        return AnimatedSwitcher(
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 300),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          child: loaded
+              ? KeyedSubtree(key: const ValueKey('photo'), child: child)
+              : AppSkeleton(key: const ValueKey('skeleton'), phase: phase),
         );
       },
       errorBuilder: (context, error, stackTrace) {
-        return const _FitImagePlaceholder(
-          child: Icon(
-            CupertinoIcons.photo,
-            size: 28,
-            color: AppColors.textTertiary,
+        return const ColoredBox(
+          color: AppColors.surface,
+          child: Center(
+            child: Icon(
+              CupertinoIcons.photo,
+              size: 28,
+              color: AppColors.textTertiary,
+            ),
           ),
         );
       },
-    );
-  }
-}
-
-class _FitImagePlaceholder extends StatelessWidget {
-  const _FitImagePlaceholder({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return ColoredBox(
-      color: AppColors.surface,
-      child: Center(child: child),
     );
   }
 }

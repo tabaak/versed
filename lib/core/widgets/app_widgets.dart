@@ -6,5 +6,6 @@ export 'app_modal.dart';
 export 'app_navigation_bar.dart';
 export 'app_notification.dart';
 export 'app_section_header.dart';
+export 'app_skeleton.dart';
 export 'app_text_field.dart';
 export 'app_toggle.dart';

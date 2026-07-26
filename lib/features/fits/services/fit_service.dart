@@ -15,8 +15,18 @@ class FitService {
   final StorageService _storage;
 
   static const _table = 'fits';
+  static const _savedTable = 'saved_fits';
   static const _columns =
       'id, owner_id, image_path, genre, wins, losses, created_at';
+
+  /// The saved grid asks for two things the profile grid never needs: whose
+  /// fit it is, and whether the fit has since left the arena.
+  static const _savedColumns =
+      'fit:fits('
+      'id, owner_id, image_path, genre, wins, losses, created_at, '
+      'deleted_at, hidden_at, '
+      'owner:profiles(username, display_name)'
+      ')';
 
   /// Live fits belonging to [ownerId], newest first. Soft-deleted fits are
   /// excluded, which is what the profile grid wants.
@@ -29,6 +39,61 @@ class FitService {
         .order('created_at', ascending: false);
 
     return rows.map(Fit.fromJson).toList();
+  }
+
+  /// The fits [userId] has saved, most recently saved first.
+  ///
+  /// Retired and hidden fits stay in the list: the grid shows them as a
+  /// placeholder tile rather than dropping them without explanation.
+  Future<List<Fit>> fetchSavedBy(String userId) async {
+    final rows = await _client
+        .from(_savedTable)
+        .select(_savedColumns)
+        .eq('user_id', userId)
+        // Orders on saved_fits.created_at — when it was saved, not when the
+        // fit was uploaded.
+        .order('created_at', ascending: false);
+
+    return rows
+        .map((row) => row['fit'])
+        .whereType<Map<String, dynamic>>()
+        .map(_savedFitFromJson)
+        .toList();
+  }
+
+  /// Flattens the embedded owner onto the fit row, which is the shape
+  /// [Fit.fromJson] reads.
+  static Fit _savedFitFromJson(Map<String, dynamic> json) {
+    final owner = json['owner'] as Map<String, dynamic>?;
+
+    return Fit.fromJson({
+      ...json,
+      'username': owner?['username'],
+      'display_name': owner?['display_name'],
+    });
+  }
+
+  /// Saves a fit for [userId]. Saving one that is already saved is a no-op,
+  /// so a double tap cannot fail.
+  Future<void> saveFit({required String userId, required String fitId}) async {
+    await _client
+        .from(_savedTable)
+        .upsert(
+          {'user_id': userId, 'fit_id': fitId},
+          onConflict: 'user_id, fit_id',
+          ignoreDuplicates: true,
+        );
+  }
+
+  Future<void> unsaveFit({
+    required String userId,
+    required String fitId,
+  }) async {
+    await _client
+        .from(_savedTable)
+        .delete()
+        .eq('user_id', userId)
+        .eq('fit_id', fitId);
   }
 
   /// Uploads the photo, then creates the fit row pointing at it.

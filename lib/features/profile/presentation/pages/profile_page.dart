@@ -10,10 +10,11 @@ import '../../../../core/widgets/app_notification.dart';
 import '../../../../core/widgets/app_section_header.dart';
 import '../../../auth/controllers/auth_controller.dart';
 import '../../../fits/controllers/my_fits_controller.dart';
+import '../../../fits/controllers/saved_fits_controller.dart';
 import '../../../fits/models/fit.dart';
 import '../../controllers/profile_controller.dart';
 import '../../models/profile_model.dart';
-import '../widgets/profile_fits_grid.dart';
+import '../widgets/profile_fits_section.dart';
 import '../widgets/profile_header.dart';
 import '../widgets/profile_settings_section.dart';
 import '../widgets/profile_stats_row.dart';
@@ -101,6 +102,48 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     );
   }
 
+  /// A saved fit is someone else's, so the only thing to offer is letting it
+  /// go — a retired one adds the explanation for why its photo is missing.
+  Future<void> _savedFitOptions(Fit fit) async {
+    final handle = fit.ownerHandle;
+
+    await AppModal.showActionSheet<void>(
+      context: context,
+      title: fit.isRetired
+          ? 'This fit was retired'
+          : handle == null
+          ? 'Saved fit'
+          : "$handle's fit",
+      message: fit.isRetired
+          ? 'It left the arena, and its photo went with it. The save is '
+                'yours to keep or clear.'
+          : null,
+      actions: [
+        CupertinoActionSheetAction(
+          isDestructiveAction: true,
+          onPressed: () {
+            Navigator.of(context).pop();
+            _removeSavedFit(fit);
+          },
+          child: const Text('Remove from saved'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _removeSavedFit(Fit fit) async {
+    final failure = await ref
+        .read(savedFitsControllerProvider.notifier)
+        .toggleSave(fit);
+
+    if (!mounted) return;
+    if (failure == null) {
+      AppToast.show(context: context, message: 'Removed from saved.');
+    } else {
+      AppToast.error(context: context, message: failure);
+    }
+  }
+
   Future<void> _deleteFit(Fit fit) async {
     try {
       await ref.read(myFitsControllerProvider.notifier).deleteFit(fit);
@@ -156,7 +199,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               onEditProfile: () => _editProfile(data),
               onSignOut: _confirmSignOut,
               isSigningOut: _isSigningOut,
-              onFitTap: _confirmDeleteFit,
+              onOwnFitTap: _confirmDeleteFit,
+              onSavedFitTap: _savedFitOptions,
             );
           },
         ),
@@ -177,7 +221,8 @@ class _ProfileContent extends ConsumerWidget {
     required this.onEditProfile,
     required this.onSignOut,
     required this.isSigningOut,
-    required this.onFitTap,
+    required this.onOwnFitTap,
+    required this.onSavedFitTap,
   });
 
   final ProfileSummary summary;
@@ -189,12 +234,12 @@ class _ProfileContent extends ConsumerWidget {
   final VoidCallback onEditProfile;
   final VoidCallback onSignOut;
   final bool isSigningOut;
-  final ValueChanged<Fit> onFitTap;
+  final ValueChanged<Fit> onOwnFitTap;
+  final ValueChanged<Fit> onSavedFitTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authControllerProvider).value;
-    final fits = ref.watch(myFitsControllerProvider);
 
     return AppListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
@@ -207,28 +252,9 @@ class _ProfileContent extends ConsumerWidget {
         const SizedBox(height: 24),
         ProfileStatsRow(stats: summary.stats),
         const SizedBox(height: 24),
-        const AppSectionHeader(title: 'Your fits'),
-        const SizedBox(height: 8),
-        fits.when(
-          loading: () => const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(child: CupertinoActivityIndicator()),
-          ),
-          error: (error, _) => AppEmptyState(
-            icon: CupertinoIcons.exclamationmark_triangle,
-            title: 'Fits unavailable',
-            message: describeError(error),
-            actionLabel: 'Try again',
-            onAction: () =>
-                ref.read(myFitsControllerProvider.notifier).refresh(),
-          ),
-          data: (items) => items.isEmpty
-              ? const AppEmptyState(
-                  icon: CupertinoIcons.camera,
-                  title: 'No fits yet',
-                  message: 'Upload an outfit to enter the arena.',
-                )
-              : ProfileFitsGrid(fits: items, onFitTap: onFitTap),
+        ProfileFitsSection(
+          onOwnFitTap: onOwnFitTap,
+          onSavedFitTap: onSavedFitTap,
         ),
         const SizedBox(height: 24),
         const AppSectionHeader(title: 'Settings'),

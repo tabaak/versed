@@ -12,6 +12,7 @@ import '../../../../core/utils/error_messages.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_modal.dart';
 import '../../../../core/widgets/app_notification.dart';
+import '../../../fits/controllers/saved_fits_controller.dart';
 import '../../../fits/models/fit.dart';
 import '../../../fits/models/fit_genre.dart';
 import '../../../fits/presentation/widgets/fit_image.dart';
@@ -22,6 +23,9 @@ import '../widgets/arena_genre_bar.dart';
 import '../widgets/emoji_burst.dart';
 import '../widgets/matchup_board.dart';
 import '../widgets/matchup_board_skeleton.dart';
+
+/// What a long press on a card offers.
+enum _FitAction { toggleSave, report }
 
 /// Main matchup screen: two outfits battle, double-tap picks the winner.
 class VersusPage extends ConsumerStatefulWidget {
@@ -226,6 +230,69 @@ class _VersusPageState extends ConsumerState<VersusPage> {
     ref.read(versusControllerProvider.notifier).advance();
   }
 
+  /// The long-press menu for a card. The bookmark on the card is the quick
+  /// path to saving; this is where it lives for anyone who never finds it, and
+  /// the only way to reach reporting.
+  Future<void> _showFitOptions(VersusSide side) async {
+    final matchup = ref.read(versusControllerProvider).value?.current;
+    if (matchup == null) return;
+
+    final fit = matchup.fitOn(side);
+    final handle = fit.ownerHandle;
+    final isSaved = ref
+        .read(savedFitsControllerProvider.notifier)
+        .isSaved(fit.id);
+
+    final action = await AppModal.showActionSheet<_FitAction>(
+      context: context,
+      title: handle == null ? 'This fit' : "$handle's fit",
+      actions: [
+        CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(context).pop(_FitAction.toggleSave),
+          child: Text(isSaved ? 'Remove from saved' : 'Save fit'),
+        ),
+        CupertinoActionSheetAction(
+          isDestructiveAction: true,
+          onPressed: () => Navigator.of(context).pop(_FitAction.report),
+          child: const Text('Report fit'),
+        ),
+      ],
+    );
+
+    if (action == null || !mounted) return;
+
+    switch (action) {
+      case _FitAction.toggleSave:
+        await _toggleSave(side);
+      case _FitAction.report:
+        await _reportFit(side);
+    }
+  }
+
+  /// Saves the fit on [side], or drops it if it was already saved. Saves are
+  /// private, so the confirmation says where it went.
+  Future<void> _toggleSave(VersusSide side) async {
+    final matchup = ref.read(versusControllerProvider).value?.current;
+    if (matchup == null) return;
+
+    final fit = matchup.fitOn(side);
+    final notifier = ref.read(savedFitsControllerProvider.notifier);
+    final wasSaved = notifier.isSaved(fit.id);
+
+    final failure = await notifier.toggleSave(fit);
+    if (!mounted) return;
+
+    if (failure != null) {
+      AppToast.error(context: context, message: failure);
+      return;
+    }
+
+    AppToast.show(
+      context: context,
+      message: wasSaved ? 'Removed from saved.' : 'Saved to your profile.',
+    );
+  }
+
   Future<void> _reportFit(VersusSide side) async {
     final matchup = ref.read(versusControllerProvider).value?.current;
     if (matchup == null) return;
@@ -349,7 +416,8 @@ class _VersusPageState extends ConsumerState<VersusPage> {
                         bursts: _bursts,
                         showHint: _showHint,
                         onTapDown: _handleTapDown,
-                        onLongPress: _reportFit,
+                        onLongPress: _showFitOptions,
+                        onToggleSave: _toggleSave,
                         onBurstCompleted: _removeBurst,
                       );
                     },
@@ -429,6 +497,7 @@ class _Arena extends StatelessWidget {
     required this.showHint,
     required this.onTapDown,
     required this.onLongPress,
+    required this.onToggleSave,
     required this.onBurstCompleted,
     super.key,
   });
@@ -442,6 +511,7 @@ class _Arena extends StatelessWidget {
   final bool showHint;
   final void Function(VersusSide side, Offset globalPosition) onTapDown;
   final ValueChanged<VersusSide> onLongPress;
+  final ValueChanged<VersusSide> onToggleSave;
   final ValueChanged<int> onBurstCompleted;
 
   @override
@@ -484,6 +554,7 @@ class _Arena extends StatelessWidget {
                     animationsDisabled: animationsDisabled,
                     onTapDown: onTapDown,
                     onLongPress: onLongPress,
+                    onToggleSave: onToggleSave,
                   ),
                 ),
               ),

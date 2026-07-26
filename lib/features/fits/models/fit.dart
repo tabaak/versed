@@ -20,6 +20,8 @@ class Fit {
     required this.losses,
     this.genre,
     this.createdAt,
+    this.deletedAt,
+    this.hiddenAt,
     this.ownerUsername,
     this.ownerDisplayName,
   });
@@ -34,6 +36,8 @@ class Fit {
 
   factory Fit.fromJson(Map<String, dynamic> json) {
     final createdAt = json['created_at'] as String?;
+    final deletedAt = json['deleted_at'] as String?;
+    final hiddenAt = json['hidden_at'] as String?;
 
     return Fit(
       // `next_matchup()` names the column fit_id; the table names it id.
@@ -44,6 +48,8 @@ class Fit {
       losses: json['losses'] as int? ?? 0,
       genre: FitGenre.fromValue(json['genre'] as String?),
       createdAt: createdAt == null ? null : DateTime.parse(createdAt),
+      deletedAt: deletedAt == null ? null : DateTime.parse(deletedAt),
+      hiddenAt: hiddenAt == null ? null : DateTime.parse(hiddenAt),
       ownerUsername: json['username'] as String?,
       ownerDisplayName: json['display_name'] as String?,
     );
@@ -59,8 +65,21 @@ class Fit {
   /// this build does not know about.
   final FitGenre? genre;
   final DateTime? createdAt;
+
+  /// Set once the owner retires the fit. Only the saved-fits query asks for
+  /// this column — everywhere else reads live fits exclusively.
+  final DateTime? deletedAt;
+
+  /// Set once moderation pulls the fit. Same caveat as [deletedAt].
+  final DateTime? hiddenAt;
+
   final String? ownerUsername;
   final String? ownerDisplayName;
+
+  /// True once the fit has left the arena, whether by its owner or by
+  /// moderation. The photo behind a retired fit is purged from storage, so
+  /// nothing should try to render it.
+  bool get isRetired => deletedAt != null || hiddenAt != null;
 
   int get battles => wins + losses;
 
@@ -79,6 +98,8 @@ class Fit {
       'losses': losses,
       'genre': genre?.value,
       'created_at': createdAt?.toIso8601String(),
+      'deleted_at': deletedAt?.toIso8601String(),
+      'hidden_at': hiddenAt?.toIso8601String(),
       'username': ownerUsername,
       'display_name': ownerDisplayName,
     };
@@ -92,6 +113,8 @@ class Fit {
     int? losses,
     FitGenre? genre,
     DateTime? createdAt,
+    DateTime? deletedAt,
+    DateTime? hiddenAt,
     String? ownerUsername,
     String? ownerDisplayName,
   }) {
@@ -103,6 +126,8 @@ class Fit {
       losses: losses ?? this.losses,
       genre: genre ?? this.genre,
       createdAt: createdAt ?? this.createdAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      hiddenAt: hiddenAt ?? this.hiddenAt,
       ownerUsername: ownerUsername ?? this.ownerUsername,
       ownerDisplayName: ownerDisplayName ?? this.ownerDisplayName,
     );
@@ -119,6 +144,8 @@ class Fit {
             other.losses == losses &&
             other.genre == genre &&
             other.createdAt == createdAt &&
+            other.deletedAt == deletedAt &&
+            other.hiddenAt == hiddenAt &&
             other.ownerUsername == ownerUsername &&
             other.ownerDisplayName == ownerDisplayName;
   }
@@ -133,6 +160,8 @@ class Fit {
       losses,
       genre,
       createdAt,
+      deletedAt,
+      hiddenAt,
       ownerUsername,
       ownerDisplayName,
     );
@@ -142,7 +171,7 @@ class Fit {
   String toString() {
     return 'Fit(id: $id, ownerId: $ownerId, imagePath: $imagePath, '
         'wins: $wins, losses: $losses, genre: ${genre?.value}, '
-        'createdAt: $createdAt, '
+        'createdAt: $createdAt, deletedAt: $deletedAt, hiddenAt: $hiddenAt, '
         'ownerUsername: $ownerUsername, ownerDisplayName: $ownerDisplayName)';
   }
 }

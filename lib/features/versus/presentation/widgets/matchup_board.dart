@@ -72,6 +72,7 @@ class MatchupBoard extends StatelessWidget {
     required this.animationsDisabled,
     required this.onTapDown,
     required this.onLongPress,
+    required this.onToggleSave,
     super.key,
   });
 
@@ -81,6 +82,7 @@ class MatchupBoard extends StatelessWidget {
   final bool animationsDisabled;
   final void Function(VersusSide side, Offset globalPosition) onTapDown;
   final ValueChanged<VersusSide> onLongPress;
+  final ValueChanged<VersusSide> onToggleSave;
 
   @override
   Widget build(BuildContext context) {
@@ -99,6 +101,7 @@ class MatchupBoard extends StatelessWidget {
           width: metrics.cardWidth,
           height: metrics.cardHeight,
           child: VersusContender(
+            fitId: matchup.left.id,
             imagePath: matchup.left.imagePath,
             isWinner: winner == VersusSide.left,
             isLoser: winner == VersusSide.right,
@@ -110,6 +113,7 @@ class MatchupBoard extends StatelessWidget {
             onTapDown: (globalPosition) =>
                 onTapDown(VersusSide.left, globalPosition),
             onLongPress: () => onLongPress(VersusSide.left),
+            onToggleSave: () => onToggleSave(VersusSide.left),
           ),
         );
         final rightCard = Positioned(
@@ -119,6 +123,7 @@ class MatchupBoard extends StatelessWidget {
           width: metrics.cardWidth,
           height: metrics.cardHeight,
           child: VersusContender(
+            fitId: matchup.right.id,
             imagePath: matchup.right.imagePath,
             isWinner: winner == VersusSide.right,
             isLoser: winner == VersusSide.left,
@@ -130,6 +135,7 @@ class MatchupBoard extends StatelessWidget {
             onTapDown: (globalPosition) =>
                 onTapDown(VersusSide.right, globalPosition),
             onLongPress: () => onLongPress(VersusSide.right),
+            onToggleSave: () => onToggleSave(VersusSide.right),
           ),
         );
 

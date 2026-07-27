@@ -30,6 +30,7 @@ const _fitId = 'fit-1';
 Future<({List<String> events})> _pumpCard(
   WidgetTester tester, {
   List<Fit> saved = const [],
+  bool isHighlighted = true,
 }) async {
   final events = <String>[];
 
@@ -50,7 +51,7 @@ Future<({List<String> events})> _pumpCard(
                 imagePath: 'user-1/fit.jpg',
                 isWinner: false,
                 isLoser: false,
-                isHighlighted: false,
+                isHighlighted: isHighlighted,
                 isDimmed: false,
                 duration: Duration.zero,
                 skeletonPhase: 0,
@@ -80,6 +81,30 @@ void main() {
     await tester.pump();
 
     expect(result.events, ['save']);
+  });
+
+  testWidgets('the bookmark is hidden until the card is tapped once', (
+    tester,
+  ) async {
+    final result = await _pumpCard(tester, isHighlighted: false);
+
+    final opacity = tester.widget<AnimatedOpacity>(
+      find
+          .ancestor(
+            of: find.byType(SaveFitButton),
+            matching: find.byType(AnimatedOpacity),
+          )
+          // Nearest first: the card's own fade-out for a lost round is further
+          // up the tree.
+          .first,
+    );
+    expect(opacity.opacity, 0);
+
+    // Invisible means untouchable: the tap belongs to the card underneath.
+    await tester.tap(find.byType(SaveFitButton), warnIfMissed: false);
+    await tester.pump();
+
+    expect(result.events, ['vote']);
   });
 
   testWidgets('tapping the photo still votes', (tester) async {

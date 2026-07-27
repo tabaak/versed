@@ -84,7 +84,7 @@ class _GenreChip extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: isSelected ? AppColors.accent : AppColors.surface,
-            borderRadius: BorderRadius.circular(17),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: isSelected ? AppColors.accent : AppColors.divider,
             ),

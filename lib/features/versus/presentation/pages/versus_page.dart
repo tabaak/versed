@@ -38,7 +38,10 @@ class VersusPage extends ConsumerStatefulWidget {
 class _VersusPageState extends ConsumerState<VersusPage> {
   static const _winnerRevealDuration = Duration(milliseconds: 900);
   static const _doubleTapWindow = Duration(milliseconds: 350);
-  static const _highlightTimeout = Duration(milliseconds: 1500);
+  /// How long a single tap holds the card highlighted. Long enough to notice
+  /// the bookmark that comes with it and aim for it, without the board sitting
+  /// in a half-decided state.
+  static const _highlightTimeout = Duration(milliseconds: 2500);
 
   /// How long the winner reveal may linger waiting on the next pair's images
   /// before the board moves on regardless. Holding forever would strand the

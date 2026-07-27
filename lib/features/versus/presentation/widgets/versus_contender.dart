@@ -45,6 +45,7 @@ class VersusContender extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isSaved = ref.watch(isFitSavedProvider(fitId));
+    final showSave = isHighlighted && !isWinner && !isLoser;
 
     final scale = isWinner
         ? 1.03
@@ -126,17 +127,21 @@ class VersusContender extends ConsumerWidget {
                 ),
               ),
             ),
-            // Hidden once a winner is out: the reveal belongs to the result,
-            // and the pair is about to be replaced anyway.
+            // Only on the card you just tapped once. The board is a
+            // double-tap surface, so a single tap is a look rather than a
+            // vote — that is the moment saving is on your mind, and it keeps
+            // the bookmark off the photo the rest of the time. Gone again
+            // once a winner is out: the reveal belongs to the result, and the
+            // pair is about to be replaced anyway.
             Positioned(
-              bottom: 8,
-              left: 8,
+              top: 4,
+              left: 4,
               child: AnimatedOpacity(
                 duration: duration,
                 curve: Curves.easeOut,
-                opacity: isWinner || isLoser ? 0 : 1,
+                opacity: showSave ? 1 : 0,
                 child: IgnorePointer(
-                  ignoring: isWinner || isLoser,
+                  ignoring: !showSave,
                   child: SaveFitButton(
                     isSaved: isSaved,
                     onPressed: onToggleSave,
@@ -153,10 +158,11 @@ class VersusContender extends ConsumerWidget {
 
 /// The bookmark that keeps a fit in the profile's saved section.
 ///
-/// Deliberately quiet: a barely-there chip rather than a filled control, so it
-/// sits in the corner of the photo without competing with the outfit for
-/// attention. The icon stays fully opaque even as its backing fades — the chip
-/// is what recedes, not the thing you have to aim at.
+/// Deliberately quiet: a bare icon with no chip behind it, so it sits in the
+/// corner of the photo without competing with the outfit for attention. Since
+/// it now lands directly on the photo, a soft drop shadow is what keeps it
+/// legible over a light outfit — the hit area stays a full [size] square
+/// regardless.
 class SaveFitButton extends StatefulWidget {
   const SaveFitButton({
     required this.isSaved,
@@ -202,33 +208,22 @@ class _SaveFitButtonState extends State<SaveFitButton> {
           scale: _pressed ? 0.9 : 1,
           duration: duration,
           curve: Curves.easeOut,
-          child: AnimatedContainer(
-            duration: duration,
-            curve: Curves.easeOut,
+          child: SizedBox(
             width: SaveFitButton.size,
             height: SaveFitButton.size,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: widget.isSaved
-                  ? AppColors.accent
-                  : AppColors.canvas.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
+            child: Center(
+              child: Icon(
+                widget.isSaved
+                    ? CupertinoIcons.bookmark_fill
+                    : CupertinoIcons.bookmark,
+                size: 20,
                 color: widget.isSaved
                     ? AppColors.accent
-                    // Softened along with the fill: an opaque hairline around
-                    // a near-transparent chip reads as the heavier element.
-                    : AppColors.divider.withValues(alpha: 0.5),
+                    : AppColors.textPrimary,
+                shadows: const [
+                  Shadow(color: Color(0x99000000), blurRadius: 6),
+                ],
               ),
-            ),
-            child: Icon(
-              widget.isSaved
-                  ? CupertinoIcons.bookmark_fill
-                  : CupertinoIcons.bookmark,
-              size: 16,
-              color: widget.isSaved
-                  ? AppColors.onAccent
-                  : AppColors.textPrimary,
             ),
           ),
         ),

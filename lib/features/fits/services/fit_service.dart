@@ -21,11 +21,16 @@ class FitService {
 
   /// The saved grid asks for two things the profile grid never needs: whose
   /// fit it is, and whether the fit has since left the arena.
+  ///
+  /// The owner embed is pinned to the `owner_id` foreign key by name: because
+  /// saved_fits joins fits to profiles as well, there are two ways to get from
+  /// a fit to a profile and an unqualified `profiles(...)` is rejected as
+  /// ambiguous.
   static const _savedColumns =
       'fit:fits('
       'id, owner_id, image_path, genre, wins, losses, created_at, '
       'deleted_at, hidden_at, '
-      'owner:profiles(username, display_name)'
+      'owner:profiles!fits_owner_id_fkey(username, display_name)'
       ')';
 
   /// Live fits belonging to [ownerId], newest first. Soft-deleted fits are

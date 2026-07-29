@@ -103,6 +103,8 @@ class MatchupBoard extends StatelessWidget {
           child: VersusContender(
             fitId: matchup.left.id,
             imagePath: matchup.left.imagePath,
+            ownerHandle: matchup.left.ownerHandle,
+            viewCount: matchup.left.battles,
             isWinner: winner == VersusSide.left,
             isLoser: winner == VersusSide.right,
             isHighlighted: highlighted == VersusSide.left,
@@ -125,6 +127,8 @@ class MatchupBoard extends StatelessWidget {
           child: VersusContender(
             fitId: matchup.right.id,
             imagePath: matchup.right.imagePath,
+            ownerHandle: matchup.right.ownerHandle,
+            viewCount: matchup.right.battles,
             isWinner: winner == VersusSide.right,
             isLoser: winner == VersusSide.left,
             isHighlighted: highlighted == VersusSide.right,

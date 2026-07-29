@@ -5,12 +5,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../fits/controllers/saved_fits_controller.dart';
 import '../../../fits/presentation/widgets/fit_image.dart';
+import 'contender_metadata.dart';
 
 /// One outfit card on the board.
 class VersusContender extends ConsumerWidget {
   const VersusContender({
     required this.fitId,
     required this.imagePath,
+    required this.ownerHandle,
+    required this.viewCount,
     required this.isWinner,
     required this.isLoser,
     required this.isHighlighted,
@@ -26,6 +29,8 @@ class VersusContender extends ConsumerWidget {
 
   final String fitId;
   final String imagePath;
+  final String? ownerHandle;
+  final int viewCount;
   final bool isWinner;
   final bool isLoser;
   final bool isHighlighted;
@@ -42,10 +47,12 @@ class VersusContender extends ConsumerWidget {
   final VoidCallback onLongPress;
   final VoidCallback onToggleSave;
 
+  static const _highlightedElementOpacity = 0.82;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isSaved = ref.watch(isFitSavedProvider(fitId));
-    final showSave = isHighlighted && !isWinner && !isLoser;
+    final showDetails = isHighlighted && !isWinner && !isLoser;
 
     final scale = isWinner
         ? 1.03
@@ -136,15 +143,37 @@ class VersusContender extends ConsumerWidget {
             Positioned(
               top: 4,
               left: 4,
-              child: AnimatedOpacity(
-                duration: duration,
-                curve: Curves.easeOut,
-                opacity: showSave ? 1 : 0,
-                child: IgnorePointer(
-                  ignoring: !showSave,
-                  child: SaveFitButton(
-                    isSaved: isSaved,
-                    onPressed: onToggleSave,
+              child: ExcludeSemantics(
+                excluding: !showDetails,
+                child: AnimatedOpacity(
+                  duration: duration,
+                  curve: Curves.easeOut,
+                  opacity: showDetails ? _highlightedElementOpacity : 0,
+                  child: IgnorePointer(
+                    ignoring: !showDetails,
+                    child: SaveFitButton(
+                      isSaved: isSaved,
+                      onPressed: onToggleSave,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 8,
+              right: 8,
+              bottom: 8,
+              child: ExcludeSemantics(
+                excluding: !showDetails,
+                child: AnimatedOpacity(
+                  duration: duration,
+                  curve: Curves.easeOut,
+                  opacity: showDetails ? _highlightedElementOpacity : 0,
+                  child: IgnorePointer(
+                    child: ContenderMetadata(
+                      handle: ownerHandle,
+                      viewCount: viewCount,
+                    ),
                   ),
                 ),
               ),

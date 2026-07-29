@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:versed/core/services/storage_service.dart';
 import 'package:versed/features/fits/controllers/saved_fits_controller.dart';
 import 'package:versed/features/fits/models/fit.dart';
+import 'package:versed/features/versus/presentation/widgets/contender_metadata.dart';
 import 'package:versed/features/versus/presentation/widgets/versus_contender.dart';
 
 class _FakeSavedFits extends SavedFitsController {
@@ -31,6 +32,8 @@ Future<({List<String> events})> _pumpCard(
   WidgetTester tester, {
   List<Fit> saved = const [],
   bool isHighlighted = true,
+  String? ownerHandle = '@styleuser',
+  int viewCount = 42,
 }) async {
   final events = <String>[];
 
@@ -49,6 +52,8 @@ Future<({List<String> events})> _pumpCard(
               child: VersusContender(
                 fitId: _fitId,
                 imagePath: 'user-1/fit.jpg',
+                ownerHandle: ownerHandle,
+                viewCount: viewCount,
                 isWinner: false,
                 isLoser: false,
                 isHighlighted: isHighlighted,
@@ -114,6 +119,88 @@ void main() {
     await tester.pump();
 
     expect(result.events, ['vote']);
+  });
+
+  testWidgets('the owner handle appears after one tap highlights the card', (
+    tester,
+  ) async {
+    await _pumpCard(tester);
+
+    final metadata = tester.widget<AnimatedOpacity>(
+      find
+          .ancestor(
+            of: find.byType(ContenderMetadata),
+            matching: find.byType(AnimatedOpacity),
+          )
+          .first,
+    );
+
+    expect(metadata.opacity, 0.82);
+    expect(find.text('@styleuser'), findsOneWidget);
+  });
+
+  testWidgets('the owner handle is hidden before the card is highlighted', (
+    tester,
+  ) async {
+    await _pumpCard(tester, isHighlighted: false);
+
+    final metadata = tester.widget<AnimatedOpacity>(
+      find
+          .ancestor(
+            of: find.byType(ContenderMetadata),
+            matching: find.byType(AnimatedOpacity),
+          )
+          .first,
+    );
+
+    expect(metadata.opacity, 0);
+    expect(find.bySemanticsLabel('@styleuser'), findsNothing);
+  });
+
+  testWidgets('a missing owner handle still shows the view count', (
+    tester,
+  ) async {
+    await _pumpCard(tester, ownerHandle: null);
+
+    expect(find.text('@styleuser'), findsNothing);
+    expect(find.text('42'), findsOneWidget);
+    expect(find.bySemanticsLabel('42 views'), findsOneWidget);
+  });
+
+  testWidgets('the completed view count appears at the bottom right', (
+    tester,
+  ) async {
+    await _pumpCard(tester, viewCount: 1);
+
+    expect(find.byIcon(CupertinoIcons.eye), findsOneWidget);
+    expect(find.text('1'), findsOneWidget);
+    expect(find.bySemanticsLabel('1 view'), findsOneWidget);
+  });
+
+  testWidgets('all highlighted overlays share a softer opacity', (
+    tester,
+  ) async {
+    await _pumpCard(tester);
+
+    final bookmarkOpacity = tester.widget<AnimatedOpacity>(
+      find
+          .ancestor(
+            of: find.byType(SaveFitButton),
+            matching: find.byType(AnimatedOpacity),
+          )
+          .first,
+    );
+    final metadataOpacity = tester.widget<AnimatedOpacity>(
+      find
+          .ancestor(
+            of: find.byType(ContenderMetadata),
+            matching: find.byType(AnimatedOpacity),
+          )
+          .first,
+    );
+
+    expect(bookmarkOpacity.opacity, 0.82);
+    expect(metadataOpacity.opacity, 0.82);
   });
 
   testWidgets('an already saved fit shows a filled bookmark', (tester) async {

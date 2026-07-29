@@ -85,6 +85,14 @@ abstract final class AppTextStyles {
     height: 1.3,
   );
 
+  static const cardMetadata = TextStyle(
+    color: AppColors.textPrimary,
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    height: 1.2,
+    fontFeatures: [FontFeature.tabularFigures()],
+  );
+
   static const tabularMetric = TextStyle(
     color: AppColors.textPrimary,
     fontSize: 14,

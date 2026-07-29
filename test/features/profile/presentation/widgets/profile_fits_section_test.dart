@@ -106,8 +106,8 @@ void main() {
     expect(find.text('Your fits  1'), findsOneWidget);
     expect(find.text('Saved  1'), findsOneWidget);
 
-    // The own-fit record is on screen; the saved fit's owner is not.
-    expect(find.text('3/5'), findsOneWidget);
+    // The own-fit win rate is on screen; the saved fit's owner is not.
+    expect(find.text('60%'), findsOneWidget);
     expect(find.text('@bob'), findsNothing);
   });
 
@@ -120,8 +120,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('@bob'), findsOneWidget);
-    expect(find.text('7/8'), findsOneWidget);
-    expect(find.text('3/5'), findsNothing);
+    expect(find.text('88%'), findsOneWidget);
+    expect(find.text('60%'), findsNothing);
   });
 
   testWidgets('a retired fit keeps its tile and says so', (tester) async {
@@ -132,7 +132,7 @@ void main() {
 
     expect(find.text('Retired'), findsOneWidget);
     // Nothing tries to render the purged photo.
-    expect(find.text('0/0'), findsNothing);
+    expect(find.text('0%'), findsNothing);
   });
 
   testWidgets('tapping a saved tile hands the fit back to the page', (
@@ -155,6 +155,7 @@ void main() {
           ownerId: 'user-$i',
           imagePath: 'user-$i/fit.jpg',
           wins: i,
+          losses: 10 - i,
           ownerUsername: 'owner$i',
         ),
     ];
@@ -165,7 +166,8 @@ void main() {
     // which could hand the grid looser constraints than the screen width.
     for (final _ in [0, 1]) {
       final offsets = [
-        for (var i = 0; i < 5; i++) tester.getTopLeft(find.text('$i/$i')).dy,
+        for (var i = 0; i < 5; i++)
+          tester.getTopLeft(find.text('${i * 10}%')).dy,
       ];
 
       expect(offsets[1], offsets[0]);
@@ -198,9 +200,7 @@ void main() {
 
       await _pumpSection(tester, own: fits, saved: fits);
 
-      final sectionLeft = tester
-          .getTopLeft(find.byType(ProfileFitsSection))
-          .dx;
+      final sectionLeft = tester.getTopLeft(find.byType(ProfileFitsSection)).dx;
 
       for (final _ in [0, 1]) {
         expect(tester.getTopLeft(find.byType(FitImage).first).dx, sectionLeft);

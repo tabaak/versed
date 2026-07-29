@@ -3,10 +3,11 @@ import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/widgets/app_crown_icon.dart';
 import '../../../fits/models/fit.dart';
 import '../../../fits/presentation/widgets/fit_image.dart';
 
-/// Three-up grid of fits, each tile showing its win record.
+/// Three-up grid of fits, each tile showing its win rate.
 ///
 /// Backs both profile sections: the user's own fits, and the ones they saved.
 /// The saved section turns [showOwner] on, since those fits belong to other
@@ -79,8 +80,7 @@ class _FitTile extends StatelessWidget {
     if (fit.isRetired) {
       return '${owner}This fit was retired. Tap for options.';
     }
-    return '${owner}Fit with ${fit.wins} wins from ${fit.battles} battles. '
-        'Tap for options.';
+    return '${owner}Fit with a ${fit.winRate}% win rate. Tap for options.';
   }
 
   @override
@@ -173,7 +173,7 @@ class _RetiredTile extends StatelessWidget {
   }
 }
 
-/// The win record, plus the owner's handle when the tile is someone else's.
+/// The win rate, plus the owner's handle when the tile is someone else's.
 class _TileCaption extends StatelessWidget {
   const _TileCaption({required this.fit, required this.showOwner});
 
@@ -200,15 +200,11 @@ class _TileCaption extends StatelessWidget {
           ),
         Row(
           children: [
-            const Icon(
-              CupertinoIcons.rosette,
-              size: 12,
-              color: AppColors.textPrimary,
-            ),
+            const AppCrownIcon(size: 12),
             const SizedBox(width: 4),
             Flexible(
               child: Text(
-                '${fit.wins}/${fit.battles}',
+                '${fit.winRate}%',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: AppTextStyles.tabularMetric.copyWith(fontSize: 12),

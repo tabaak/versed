@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:versed/core/services/storage_service.dart';
+import 'package:versed/core/widgets/app_crown_icon.dart';
 import 'package:versed/features/fits/controllers/saved_fits_controller.dart';
 import 'package:versed/features/fits/models/fit.dart';
 import 'package:versed/features/versus/presentation/widgets/contender_metadata.dart';
@@ -33,7 +34,7 @@ Future<({List<String> events})> _pumpCard(
   List<Fit> saved = const [],
   bool isHighlighted = true,
   String? ownerHandle = '@styleuser',
-  int viewCount = 42,
+  int winCount = 42,
 }) async {
   final events = <String>[];
 
@@ -53,7 +54,7 @@ Future<({List<String> events})> _pumpCard(
                 fitId: _fitId,
                 imagePath: 'user-1/fit.jpg',
                 ownerHandle: ownerHandle,
-                viewCount: viewCount,
+                winCount: winCount,
                 isWinner: false,
                 isLoser: false,
                 isHighlighted: isHighlighted,
@@ -157,24 +158,35 @@ void main() {
     expect(find.bySemanticsLabel('@styleuser'), findsNothing);
   });
 
-  testWidgets('a missing owner handle still shows the view count', (
+  testWidgets('a missing owner handle still shows the win count', (
     tester,
   ) async {
     await _pumpCard(tester, ownerHandle: null);
 
     expect(find.text('@styleuser'), findsNothing);
     expect(find.text('42'), findsOneWidget);
-    expect(find.bySemanticsLabel('42 views'), findsOneWidget);
+    expect(find.bySemanticsLabel('42 wins'), findsOneWidget);
   });
 
-  testWidgets('the completed view count appears at the bottom right', (
+  testWidgets('the win count appears with a crown at the bottom right', (
     tester,
   ) async {
-    await _pumpCard(tester, viewCount: 1);
+    await _pumpCard(tester, winCount: 1);
 
-    expect(find.byIcon(CupertinoIcons.eye), findsOneWidget);
+    expect(find.byType(AppCrownIcon), findsOneWidget);
     expect(find.text('1'), findsOneWidget);
-    expect(find.bySemanticsLabel('1 view'), findsOneWidget);
+    expect(find.bySemanticsLabel('1 win'), findsOneWidget);
+
+    final position = tester.widget<Positioned>(
+      find
+          .ancestor(
+            of: find.byType(ContenderMetadata),
+            matching: find.byType(Positioned),
+          )
+          .first,
+    );
+    expect(position.right, 4);
+    expect(position.bottom, 4);
   });
 
   testWidgets('all highlighted overlays share a softer opacity', (

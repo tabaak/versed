@@ -14,7 +14,7 @@ class _FakeStorageService implements StorageService {
       throw UnimplementedError(invocation.memberName.toString());
 }
 
-/// Each fit gets a distinct win record, which is also its caption — that is
+/// Each fit gets a distinct win rate, which is also its caption — that is
 /// what makes an individual tile findable on screen.
 List<Fit> _fits(int count) => [
   for (var i = 0; i < count; i++)
@@ -23,13 +23,14 @@ List<Fit> _fits(int count) => [
       ownerId: 'user-1',
       imagePath: 'user-1/fit-$i.jpg',
       wins: i,
+      losses: 10 - i,
       ownerUsername: 'owner$i',
     ),
 ];
 
 /// The vertical offset of every tile, in order.
 List<double> _rowOffsets(WidgetTester tester, int count) => [
-  for (var i = 0; i < count; i++) tester.getTopLeft(find.text('$i/$i')).dy,
+  for (var i = 0; i < count; i++) tester.getTopLeft(find.text('${i * 10}%')).dy,
 ];
 
 Future<void> _pumpGrid(
@@ -102,8 +103,8 @@ void main() {
     await _pumpGrid(tester, width: 393, count: 4);
 
     expect(
-      tester.getTopLeft(find.text('3/3')).dx,
-      tester.getTopLeft(find.text('0/0')).dx,
+      tester.getTopLeft(find.text('30%')).dx,
+      tester.getTopLeft(find.text('0%')).dx,
     );
   });
 }

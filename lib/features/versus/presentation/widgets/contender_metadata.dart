@@ -2,17 +2,18 @@ import 'package:flutter/cupertino.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/widgets/app_crown_icon.dart';
 
-/// The owner and completed-view count revealed along the foot of a contender.
+/// The owner and win count revealed along the foot of a contender.
 class ContenderMetadata extends StatelessWidget {
   const ContenderMetadata({
     required this.handle,
-    required this.viewCount,
+    required this.winCount,
     super.key,
   });
 
   final String? handle;
-  final int viewCount;
+  final int winCount;
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +25,7 @@ class ContenderMetadata extends StatelessWidget {
       children: [
         if (showHandle)
           Flexible(
-            child: _MetadataChip(
+            child: MetadataChip(
               child: Text(
                 normalizedHandle,
                 maxLines: 1,
@@ -36,19 +37,15 @@ class ContenderMetadata extends StatelessWidget {
         const Spacer(),
         const SizedBox(width: 8),
         Semantics(
-          label: '$viewCount ${viewCount == 1 ? 'view' : 'views'}',
+          label: '$winCount ${winCount == 1 ? 'win' : 'wins'}',
           child: ExcludeSemantics(
-            child: _MetadataChip(
+            child: MetadataChip(
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
-                    CupertinoIcons.eye,
-                    size: 15,
-                    color: AppColors.textPrimary,
-                  ),
+                  const AppCrownIcon(),
                   const SizedBox(width: 4),
-                  Text('$viewCount', style: AppTextStyles.cardMetadata),
+                  Text('$winCount', style: AppTextStyles.cardMetadata),
                 ],
               ),
             ),
@@ -59,8 +56,8 @@ class ContenderMetadata extends StatelessWidget {
   }
 }
 
-class _MetadataChip extends StatelessWidget {
-  const _MetadataChip({required this.child});
+class MetadataChip extends StatelessWidget {
+  const MetadataChip({required this.child, super.key});
 
   final Widget child;
 

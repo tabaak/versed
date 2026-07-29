@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/widgets/app_crown_icon.dart';
 import '../../../fits/controllers/saved_fits_controller.dart';
 import '../../../fits/presentation/widgets/fit_image.dart';
 import 'contender_metadata.dart';
@@ -13,7 +15,7 @@ class VersusContender extends ConsumerWidget {
     required this.fitId,
     required this.imagePath,
     required this.ownerHandle,
-    required this.viewCount,
+    required this.winCount,
     required this.isWinner,
     required this.isLoser,
     required this.isHighlighted,
@@ -30,7 +32,7 @@ class VersusContender extends ConsumerWidget {
   final String fitId;
   final String imagePath;
   final String? ownerHandle;
-  final int viewCount;
+  final int winCount;
   final bool isWinner;
   final bool isLoser;
   final bool isHighlighted;
@@ -159,10 +161,38 @@ class VersusContender extends ConsumerWidget {
                 ),
               ),
             ),
+            // Handle — bottom left, truncated to avoid overlapping wins.
+            if (ownerHandle != null && ownerHandle!.trim().isNotEmpty)
+              Positioned(
+                left: 8,
+                right: 80,
+                bottom: 4,
+                child: ExcludeSemantics(
+                  excluding: !showDetails,
+                  child: AnimatedOpacity(
+                    duration: duration,
+                    curve: Curves.easeOut,
+                    opacity: showDetails ? _highlightedElementOpacity : 0,
+                    child: IgnorePointer(
+                      child: Align(
+                        alignment: Alignment.bottomLeft,
+                        child: MetadataChip(
+                          child: Text(
+                            ownerHandle!.trim(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTextStyles.cardMetadata,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            // Wins — bottom right, always in the same place.
             Positioned(
-              left: 8,
               right: 8,
-              bottom: 8,
+              bottom: 4,
               child: ExcludeSemantics(
                 excluding: !showDetails,
                 child: AnimatedOpacity(
@@ -170,9 +200,23 @@ class VersusContender extends ConsumerWidget {
                   curve: Curves.easeOut,
                   opacity: showDetails ? _highlightedElementOpacity : 0,
                   child: IgnorePointer(
-                    child: ContenderMetadata(
-                      handle: ownerHandle,
-                      viewCount: viewCount,
+                    child: Semantics(
+                      label: '$winCount ${winCount == 1 ? 'win' : 'wins'}',
+                      child: ExcludeSemantics(
+                        child: MetadataChip(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const AppCrownIcon(),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$winCount',
+                                style: AppTextStyles.cardMetadata,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),

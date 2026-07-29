@@ -1,13 +1,14 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/utils/error_messages.dart';
 import '../../../../core/widgets/app_empty_state.dart';
+import '../../../../core/widgets/app_icon_button.dart';
 import '../../../../core/widgets/app_list_view.dart';
 import '../../../../core/widgets/app_modal.dart';
 import '../../../../core/widgets/app_notification.dart';
-import '../../../../core/widgets/app_section_header.dart';
 import '../../../auth/controllers/auth_controller.dart';
 import '../../../fits/controllers/my_fits_controller.dart';
 import '../../../fits/controllers/saved_fits_controller.dart';
@@ -16,11 +17,12 @@ import '../../controllers/profile_controller.dart';
 import '../../models/profile_model.dart';
 import '../widgets/profile_fits_section.dart';
 import '../widgets/profile_header.dart';
-import '../widgets/profile_settings_section.dart';
 import '../widgets/profile_stats_row.dart';
 import 'edit_profile_page.dart';
+import 'settings_page.dart';
 
-/// The user's profile: identity, battle record, fits, and settings.
+/// The user's profile: identity, battle record, and fits. Settings live one
+/// tap away, behind the gear.
 class ProfilePage extends ConsumerStatefulWidget {
   const ProfilePage({super.key});
 
@@ -29,13 +31,10 @@ class ProfilePage extends ConsumerStatefulWidget {
 }
 
 class _ProfilePageState extends ConsumerState<ProfilePage> {
-  // Local-only until the settings backend exists.
-  bool _notificationsEnabled = true;
-  bool _publicProfile = true;
-  bool _isSigningOut = false;
-
-  void _showComingSoon(String label) {
-    AppToast.show(context: context, message: '$label is coming soon.');
+  Future<void> _openSettings() async {
+    await Navigator.of(context).push<void>(
+      CupertinoPageRoute<void>(builder: (_) => const SettingsPage()),
+    );
   }
 
   Future<void> _editProfile(ProfileSummary summary) async {
@@ -54,32 +53,6 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
     if (saved != true || !mounted) return;
     AppToast.success(context: context, message: 'Profile updated.');
-  }
-
-  Future<void> _confirmSignOut() async {
-    await AppModal.showActionSheet<void>(
-      context: context,
-      title: 'Sign out of VERSED?',
-      message: 'Your fits and battle record stay on your account.',
-      actions: [
-        CupertinoActionSheetAction(
-          isDestructiveAction: true,
-          onPressed: () {
-            Navigator.of(context).pop();
-            _signOut();
-          },
-          child: const Text('Sign out'),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _signOut() async {
-    setState(() => _isSigningOut = true);
-    await ref.read(authControllerProvider.notifier).signOut();
-    // The auth gate swaps this page out on success, so only a failed sign-out
-    // gets here still mounted.
-    if (mounted) setState(() => _isSigningOut = false);
   }
 
   Future<void> _confirmDeleteFit(Fit fit) async {
@@ -160,13 +133,25 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     final summary = ref.watch(profileControllerProvider);
 
     return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('VERSED', style: AppTextStyles.wordmark),
+      navigationBar: CupertinoNavigationBar(
+        middle: const Text('VERSED', style: AppTextStyles.wordmark),
         border: null,
         // The shell keeps every tab alive at once, so each tab's bar would
         // otherwise claim the same nav-bar hero tag and collide when the edit
         // page is pushed.
         transitionBetweenRoutes: false,
+        // Nudges the gear in from the bar's default inset so the icon's edge
+        // lines up with the 16pt content margin below it.
+        padding: const EdgeInsetsDirectional.only(start: 16, end: 8),
+        trailing: AppIconButton(
+          icon: CupertinoIcons.settings,
+          onPressed: _openSettings,
+          semanticLabel: 'Settings',
+          size: 40,
+          iconSize: 22,
+          backgroundColor: AppColors.canvas,
+          haptic: false,
+        ),
       ),
       child: SafeArea(
         child: summary.when(
@@ -189,16 +174,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
             return _ProfileContent(
               summary: data,
-              notificationsEnabled: _notificationsEnabled,
-              onNotificationsChanged: (value) =>
-                  setState(() => _notificationsEnabled = value),
-              publicProfile: _publicProfile,
-              onPublicProfileChanged: (value) =>
-                  setState(() => _publicProfile = value),
-              onRowTap: _showComingSoon,
               onEditProfile: () => _editProfile(data),
-              onSignOut: _confirmSignOut,
-              isSigningOut: _isSigningOut,
               onOwnFitTap: _confirmDeleteFit,
               onSavedFitTap: _savedFitOptions,
             );
@@ -209,31 +185,17 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   }
 }
 
-/// The loaded profile: identity, record, fits and settings.
+/// The loaded profile: identity, record and fits.
 class _ProfileContent extends ConsumerWidget {
   const _ProfileContent({
     required this.summary,
-    required this.notificationsEnabled,
-    required this.onNotificationsChanged,
-    required this.publicProfile,
-    required this.onPublicProfileChanged,
-    required this.onRowTap,
     required this.onEditProfile,
-    required this.onSignOut,
-    required this.isSigningOut,
     required this.onOwnFitTap,
     required this.onSavedFitTap,
   });
 
   final ProfileSummary summary;
-  final bool notificationsEnabled;
-  final ValueChanged<bool> onNotificationsChanged;
-  final bool publicProfile;
-  final ValueChanged<bool> onPublicProfileChanged;
-  final ValueChanged<String> onRowTap;
   final VoidCallback onEditProfile;
-  final VoidCallback onSignOut;
-  final bool isSigningOut;
   final ValueChanged<Fit> onOwnFitTap;
   final ValueChanged<Fit> onSavedFitTap;
 
@@ -255,18 +217,6 @@ class _ProfileContent extends ConsumerWidget {
         ProfileFitsSection(
           onOwnFitTap: onOwnFitTap,
           onSavedFitTap: onSavedFitTap,
-        ),
-        const SizedBox(height: 24),
-        const AppSectionHeader(title: 'Settings'),
-        const SizedBox(height: 8),
-        ProfileSettingsSection(
-          notificationsEnabled: notificationsEnabled,
-          onNotificationsChanged: onNotificationsChanged,
-          publicProfile: publicProfile,
-          onPublicProfileChanged: onPublicProfileChanged,
-          onRowTap: onRowTap,
-          onSignOut: onSignOut,
-          isSigningOut: isSigningOut,
         ),
       ],
     );

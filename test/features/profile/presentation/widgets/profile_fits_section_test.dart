@@ -81,8 +81,8 @@ Future<List<Fit>> _pumpSection(
           child: ListView(
             children: [
               ProfileFitsSection(
-                onOwnFitTap: tapped.add,
-                onSavedFitTap: tapped.add,
+                onOwnFitTap: (fit, _) => tapped.add(fit),
+                onSavedFitTap: (fit, _) => tapped.add(fit),
               ),
             ],
           ),

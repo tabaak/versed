@@ -15,7 +15,7 @@ import '../../../../core/widgets/app_image_cropper.dart';
 import '../../../../core/widgets/app_list_view.dart';
 import '../../../../core/widgets/app_modal.dart';
 import '../../../../core/widgets/app_navigation_bar.dart';
-import '../../../../core/widgets/app_notification.dart';
+import '../../../../core/widgets/app_island.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../upload/models/upload_state.dart';
 import '../../../upload/services/image_pick_service.dart';
@@ -80,8 +80,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
 
   /// The photo the page is showing: the staged pick, else the saved one
   /// unless it is on its way out.
-  String? get _shownAvatarUrl =>
-      _removeAvatar ? null : widget.initialAvatarUrl;
+  String? get _shownAvatarUrl => _removeAvatar ? null : widget.initialAvatarUrl;
 
   bool get _hasAvatar => _pickedAvatar != null || _shownAvatarUrl != null;
 
@@ -166,7 +165,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
       });
     } catch (error) {
       if (!mounted) return;
-      AppToast.error(context: context, message: describeError(error));
+      AppIsland.error(context: context, message: describeError(error));
     }
   }
 

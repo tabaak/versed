@@ -52,7 +52,8 @@ Future<void> _pumpGrid(
                 width: width,
                 child: ProfileFitsGrid(
                   fits: _fits(count),
-                  onFitTap: (_) {},
+                  onFitTap: (_, _) {},
+                  heroTagPrefix: 'test-fit',
                   showOwner: showOwner,
                 ),
               ),

@@ -7,6 +7,10 @@ import '../../../../core/widgets/app_crown_icon.dart';
 import '../../../fits/models/fit.dart';
 import '../../../fits/presentation/widgets/fit_image.dart';
 
+/// Reports which fit was tapped, along with the Hero tag its tile flies under
+/// so the viewer can zoom out of that exact tile.
+typedef FitTileTapCallback = void Function(Fit fit, Object heroTag);
+
 /// Three-up grid of fits, each tile showing its win rate.
 ///
 /// Backs both profile sections: the user's own fits, and the ones they saved.
@@ -16,6 +20,7 @@ class ProfileFitsGrid extends StatelessWidget {
   const ProfileFitsGrid({
     required this.fits,
     required this.onFitTap,
+    required this.heroTagPrefix,
     this.showOwner = false,
     super.key,
   });
@@ -24,7 +29,12 @@ class ProfileFitsGrid extends StatelessWidget {
   static const _columns = 3;
 
   final List<Fit> fits;
-  final ValueChanged<Fit> onFitTap;
+  final FitTileTapCallback onFitTap;
+
+  /// Namespaces the Hero tags, because the same fit can sit in both grids at
+  /// once and the tab switch cross-fades them — two live Heroes sharing a tag
+  /// is an assertion, not a nicety.
+  final String heroTagPrefix;
 
   /// Captions each tile with the handle of whoever owns the fit.
   final bool showOwner;
@@ -53,7 +63,8 @@ class ProfileFitsGrid extends StatelessWidget {
                   child: _FitTile(
                     fit: fit,
                     showOwner: showOwner,
-                    onTap: () => onFitTap(fit),
+                    heroTag: '$heroTagPrefix-${fit.id}',
+                    onTap: () => onFitTap(fit, '$heroTagPrefix-${fit.id}'),
                   ),
                 ),
             ],
@@ -68,11 +79,13 @@ class _FitTile extends StatelessWidget {
   const _FitTile({
     required this.fit,
     required this.showOwner,
+    required this.heroTag,
     required this.onTap,
   });
 
   final Fit fit;
   final bool showOwner;
+  final Object heroTag;
   final VoidCallback onTap;
 
   String get _semanticLabel {
@@ -80,7 +93,7 @@ class _FitTile extends StatelessWidget {
     if (fit.isRetired) {
       return '${owner}This fit was retired. Tap for options.';
     }
-    return '${owner}Fit with a ${fit.winRate}% win rate. Tap for options.';
+    return '${owner}Fit with a ${fit.winRate}% win rate. Tap to open.';
   }
 
   @override
@@ -102,33 +115,59 @@ class _FitTile extends StatelessWidget {
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: fit.isRetired
-                  ? const _RetiredTile()
-                  : Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        FitImage(imagePath: fit.imagePath),
-                        // Keeps the caption legible over bright outfit photos.
-                        const DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.center,
-                              end: Alignment.bottomCenter,
-                              colors: [Color(0x00000000), Color(0xB3000000)],
+            child: fit.isRetired
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: const _RetiredTile(),
+                  )
+                : Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // Only the photo flies to the viewer. The caption stays
+                      // behind: it belongs to the tile, and the viewer says
+                      // the same things at full size underneath the image.
+                      Hero(
+                        tag: heroTag,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: FitImage(imagePath: fit.imagePath),
+                        ),
+                      ),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            // Keeps the caption legible over bright outfit
+                            // photos.
+                            const IgnorePointer(
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.center,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Color(0x00000000),
+                                      Color(0xB3000000),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
+                            Positioned(
+                              left: 6,
+                              right: 6,
+                              bottom: 6,
+                              child: _TileCaption(
+                                fit: fit,
+                                showOwner: showOwner,
+                              ),
+                            ),
+                          ],
                         ),
-                        Positioned(
-                          left: 6,
-                          right: 6,
-                          bottom: 6,
-                          child: _TileCaption(fit: fit, showOwner: showOwner),
-                        ),
-                      ],
-                    ),
-            ),
+                      ),
+                    ],
+                  ),
           ),
         ),
       ),

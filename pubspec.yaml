@@ -42,6 +42,8 @@ dependencies:
   # Pure-Dart decode/crop/encode, so the 4:5 crop runs in an isolate without a
   # platform channel.
   image: ^4.9.1
+  share_plus: ^13.3.0
+  gal: ^2.3.3
 
 dev_dependencies:
   flutter_test:

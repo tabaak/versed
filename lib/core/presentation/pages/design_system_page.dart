@@ -16,21 +16,15 @@ class _DesignSystemPageState extends State<DesignSystemPage> {
   bool _toggleValue = true;
   bool _checkboxValue = false;
 
-  void _showSuccessToast() {
-    AppToast.success(context: context, message: 'Primary action confirmed.');
-  }
-
-  void _showTopNotification() {
-    AppToast.error(
+  void _showIsland(AppIslandStatus status) {
+    AppIsland.show(
       context: context,
-      message: 'Upload paused. Check your connection.',
-    );
-  }
-
-  void _showBottomNotification() {
-    AppToast.success(
-      context: context,
-      message: 'Outfit saved to your archive.',
+      status: status,
+      message: switch (status) {
+        AppIslandStatus.neutral => 'Removed from saved.',
+        AppIslandStatus.success => 'Your fit is in the arena.',
+        AppIslandStatus.error => 'Upload paused. Check your connection.',
+      },
     );
   }
 
@@ -97,9 +91,9 @@ class _DesignSystemPageState extends State<DesignSystemPage> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
               children: [
                 ButtonCatalogSection(
-                  onPrimaryPressed: _showSuccessToast,
+                  onPrimaryPressed: () => _showIsland(AppIslandStatus.success),
                   onSecondaryPressed: _showModal,
-                  onIconPressed: _showSuccessToast,
+                  onIconPressed: () => _showIsland(AppIslandStatus.success),
                 ),
                 const SizedBox(height: 28),
                 InputCatalogSection(
@@ -115,8 +109,7 @@ class _DesignSystemPageState extends State<DesignSystemPage> {
                 const SizedBox(height: 28),
                 OverlayCatalogSection(
                   onShowModal: _showModal,
-                  onShowTopNotification: _showTopNotification,
-                  onShowBottomNotification: _showBottomNotification,
+                  onShowIsland: _showIsland,
                 ),
                 const SizedBox(height: 28),
                 const ListCatalogSection(),

@@ -11,7 +11,7 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/utils/error_messages.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_modal.dart';
-import '../../../../core/widgets/app_notification.dart';
+import '../../../../core/widgets/app_island.dart';
 import '../../../fits/controllers/saved_fits_controller.dart';
 import '../../../fits/models/fit.dart';
 import '../../../fits/models/fit_genre.dart';
@@ -216,7 +216,7 @@ class _VersusPageState extends ConsumerState<VersusPage> {
           )
           .then((failure) {
             if (!mounted || failure == null) return;
-            AppToast.error(context: context, message: failure);
+            AppIsland.error(context: context, message: failure);
           }),
     );
 
@@ -287,11 +287,11 @@ class _VersusPageState extends ConsumerState<VersusPage> {
     if (!mounted) return;
 
     if (failure != null) {
-      AppToast.error(context: context, message: failure);
+      AppIsland.error(context: context, message: failure);
       return;
     }
 
-    AppToast.show(
+    AppIsland.show(
       context: context,
       message: wasSaved ? 'Removed from saved.' : 'Saved to your profile.',
     );
@@ -326,9 +326,9 @@ class _VersusPageState extends ConsumerState<VersusPage> {
 
     if (!mounted) return;
     if (failure == null) {
-      AppToast.success(context: context, message: 'Reported. Thanks.');
+      AppIsland.success(context: context, message: 'Reported. Thanks.');
     } else {
-      AppToast.error(context: context, message: failure);
+      AppIsland.error(context: context, message: failure);
     }
   }
 

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Turns an exception into a short sentence fit for a toast.
@@ -27,6 +28,17 @@ String describeError(Object error) {
 
   if (error is SocketException || error is HttpException) {
     return 'No connection. Check your network and try again.';
+  }
+
+  // Only reachable in development: a plugin added since the last full build
+  // has no native half registered yet, and a hot reload cannot add one. Said
+  // plainly here rather than left to look like a server failure.
+  if (error is MissingPluginException) {
+    return 'Rebuild the app — a plugin was added since it was last built.';
+  }
+
+  if (error is PlatformException) {
+    return error.message ?? 'Something went wrong. Try again.';
   }
 
   return 'Something went wrong. Try again.';

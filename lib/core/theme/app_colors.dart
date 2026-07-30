@@ -13,6 +13,13 @@ abstract final class AppColors {
   static const accent = Color(0xFFFFFFFF);
   static const onAccent = Color(0xFF000000);
 
+  /// The notification island — and the only pure black in the app.
+  ///
+  /// Everything else obeys the near-black canvas rule, but this one shape has
+  /// to disappear into an iPhone's Dynamic Island cutout, and the cutout is
+  /// true black. At `#0A0A0A` the seam is visible on a real device.
+  static const island = Color(0xFF000000);
+
   static const streak = Color(0xFFFFD60A);
   static const error = Color(0xFFFF453A);
   static const success = Color(0xFF30D158);

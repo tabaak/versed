@@ -6,7 +6,7 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_modal.dart';
-import '../../../../core/widgets/app_notification.dart';
+import '../../../../core/widgets/app_island.dart';
 import '../../../fits/models/fit_genre.dart';
 import '../../controllers/upload_controller.dart';
 import '../widgets/fit_cropper.dart';
@@ -44,7 +44,7 @@ class _UploadPageState extends ConsumerState<UploadPage> {
         .pick(source);
 
     if (!mounted || failure == null) return;
-    AppToast.error(context: context, message: failure);
+    AppIsland.error(context: context, message: failure);
   }
 
   void _setCrop(Rect crop) {
@@ -60,9 +60,9 @@ class _UploadPageState extends ConsumerState<UploadPage> {
 
     if (!mounted) return;
     if (failure == null) {
-      AppToast.success(context: context, message: 'Your fit is in the arena.');
+      AppIsland.success(context: context, message: 'Your fit is in the arena.');
     } else {
-      AppToast.error(context: context, message: failure);
+      AppIsland.error(context: context, message: failure);
     }
   }
 

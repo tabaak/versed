@@ -26,6 +26,7 @@ Source of truth: `lib/core/theme/app_colors.dart`. Reference only, don't duplica
 | Text primary/secondary/tertiary | `AppColors.textPrimary/textSecondary/textTertiary` | White down to dim grey. |
 | Accent | `AppColors.accent` (`#FFFFFF`) | The primary action color — active tab, primary button fill, selected card highlight. VERSED has *no* brand hue; white is the verb. Paired with `AppColors.onAccent` (black text/icons on white fills). |
 | Streak | `AppColors.streak` (amber) | Reserved exclusively for active win-streak indicators. Never used decoratively. |
+| Island | `AppColors.island` (`#000000`) | The **only** pure black in the app, and the one exception to the rule below. The notification island has to disappear into an iPhone's Dynamic Island cutout, which is true black — at `#0A0A0A` the seam shows. Never use it for anything else. |
 | Error / Success | `AppColors.error` / `AppColors.success` | Destructive actions, failed uploads / positive results. |
 
 **Rule**: no brand accent color gets introduced. We tried coral (`#FA5F55`) and went back to white — if a screen wants "pop", the answer is contrast and whitespace, not a new hue. `AppColors.accent` is defined as a token specifically so this can be revisited later without hunting through screens.
@@ -42,7 +43,7 @@ Source of truth: `lib/core/theme/app_text_styles.dart`. Every text role used in 
 
 - **Spacing scale (4pt base)**: 4, 8, 12, 16, 20, 24, 32, 40, 52, 76
 - **Standard margin**: 16pt horizontal for text content; outfit battle cards are edge-to-edge (0pt)
-- **Radius scale — sharp everywhere**: 4pt (checkboxes, tight elements) · 8pt (cards, buttons, inputs, notifications) · 12pt (sheets/modals). No full-pill/500pt shapes — buttons and the VS divider are sharp rectangles now, not capsules. True circles (avatars, the upload FAB ring) stay circular — a circle has no corner to sharpen.
+- **Radius scale — sharp everywhere**: 4pt (checkboxes, tight elements) · 8pt (cards, buttons, inputs) · 12pt (sheets/modals). No full-pill/500pt shapes — buttons and the VS divider are sharp rectangles now, not capsules. True circles (avatars, the upload FAB ring) stay circular — a circle has no corner to sharpen. The notification island is a capsule for the same reason: it stands in for a hardware cutout that *is* one. The rule is about decorative shapes, not physical ones.
 
 ## 5. Motion & Haptics
 
@@ -55,6 +56,7 @@ Motion and haptic feedback are part of the brand — the app should never feel l
 - **Tab change**: selection haptic (`HapticFeedback.selectionClick()`).
 - **Sheet/modal open**: medium haptic (`HapticFeedback.mediumImpact()`).
 - **Modals & action sheets**: native Cupertino presentations (`showCupertinoModalPopup` / `CupertinoActionSheet`), not Material bottom sheets.
+- **Confirmations**: the island (`AppIsland`) — a pill that springs open from the Dynamic Island's footprint at the top of the screen and collapses back into it. Damping 0.75, with the icon and text staggered behind the shape so it reads as opening rather than resizing. Announces itself with a selection haptic. Never stack two: a new message replaces the one on screen.
 
 ## 6. Do's and Don'ts
 

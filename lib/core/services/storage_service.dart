@@ -54,6 +54,29 @@ class StorageService {
     await _client.storage.from(fitsBucket).remove([path]);
   }
 
+  /// The raw bytes behind a fit photo.
+  ///
+  /// The viewer's share sheet needs the file itself rather than a URL, so the
+  /// receiving app gets an image it can save rather than a link it has to
+  /// fetch.
+  Future<Uint8List> downloadFitImage(String path) {
+    return _client.storage.from(fitsBucket).download(path);
+  }
+
+  /// The file extension of a stored path, normalized to one we know how to
+  /// label with a content type. Falls back to `jpg`.
+  String extensionOf(String path) {
+    final name = path.split('/').last;
+    final dot = name.lastIndexOf('.');
+    if (dot == -1) return 'jpg';
+    return _normalizeExtension(name.substring(dot + 1));
+  }
+
+  /// The MIME type for a stored path, for the share sheet.
+  String contentTypeOf(String path) {
+    return _contentTypes[extensionOf(path)] ?? 'image/jpeg';
+  }
+
   /// Uploads an avatar and returns its public URL.
   ///
   /// Unlike a fit, the profile row stores the URL rather than the path:

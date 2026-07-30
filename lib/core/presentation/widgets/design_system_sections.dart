@@ -101,14 +101,12 @@ class InputCatalogSection extends StatelessWidget {
 class OverlayCatalogSection extends StatelessWidget {
   const OverlayCatalogSection({
     required this.onShowModal,
-    required this.onShowTopNotification,
-    required this.onShowBottomNotification,
+    required this.onShowIsland,
     super.key,
   });
 
   final VoidCallback onShowModal;
-  final VoidCallback onShowTopNotification;
-  final VoidCallback onShowBottomNotification;
+  final ValueChanged<AppIslandStatus> onShowIsland;
 
   @override
   Widget build(BuildContext context) {
@@ -118,29 +116,27 @@ class OverlayCatalogSection extends StatelessWidget {
         const AppSectionHeader(title: 'Overlays'),
         AppButton(label: 'Open Native Sheet', onPressed: onShowModal),
         const SizedBox(height: 12),
+        // The island has no static state worth previewing — it is the opening
+        // and closing that is the component, so the catalog only offers ways
+        // to fire it.
         Row(
           children: [
-            Expanded(
-              child: AppButton(
-                label: 'Top Toast',
-                onPressed: onShowTopNotification,
-                variant: AppButtonVariant.secondary,
+            for (final status in AppIslandStatus.values) ...[
+              if (status != AppIslandStatus.values.first)
+                const SizedBox(width: 8),
+              Expanded(
+                child: AppButton(
+                  label: switch (status) {
+                    AppIslandStatus.neutral => 'Neutral',
+                    AppIslandStatus.success => 'Success',
+                    AppIslandStatus.error => 'Error',
+                  },
+                  onPressed: () => onShowIsland(status),
+                  variant: AppButtonVariant.secondary,
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: AppButton(
-                label: 'Bottom Toast',
-                onPressed: onShowBottomNotification,
-                variant: AppButtonVariant.secondary,
-              ),
-            ),
+            ],
           ],
-        ),
-        const SizedBox(height: 16),
-        const AppNotification(
-          message: 'Your fit is ready for tonight’s battle.',
-          status: AppNotificationStatus.success,
         ),
       ],
     );

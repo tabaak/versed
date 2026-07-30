@@ -5,7 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_list_view.dart';
 import '../../../../core/widgets/app_modal.dart';
 import '../../../../core/widgets/app_navigation_bar.dart';
-import '../../../../core/widgets/app_notification.dart';
+import '../../../../core/widgets/app_island.dart';
 import '../../../auth/controllers/auth_controller.dart';
 import '../widgets/profile_settings_section.dart';
 
@@ -25,7 +25,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   bool _isSigningOut = false;
 
   void _showComingSoon(String label) {
-    AppToast.show(context: context, message: '$label is coming soon.');
+    AppIsland.show(context: context, message: '$label is coming soon.');
   }
 
   Future<void> _confirmSignOut() async {

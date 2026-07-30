@@ -8,13 +8,14 @@ import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_icon_button.dart';
 import '../../../../core/widgets/app_list_view.dart';
 import '../../../../core/widgets/app_modal.dart';
-import '../../../../core/widgets/app_notification.dart';
+import '../../../../core/widgets/app_island.dart';
 import '../../../auth/controllers/auth_controller.dart';
-import '../../../fits/controllers/my_fits_controller.dart';
 import '../../../fits/controllers/saved_fits_controller.dart';
 import '../../../fits/models/fit.dart';
+import '../../../fits/presentation/pages/fit_viewer_page.dart';
 import '../../controllers/profile_controller.dart';
 import '../../models/profile_model.dart';
+import '../widgets/profile_fits_grid.dart';
 import '../widgets/profile_fits_section.dart';
 import '../widgets/profile_header.dart';
 import '../widgets/profile_stats_row.dart';
@@ -52,45 +53,31 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     );
 
     if (saved != true || !mounted) return;
-    AppToast.success(context: context, message: 'Profile updated.');
+    AppIsland.success(context: context, message: 'Profile updated.');
   }
 
-  Future<void> _confirmDeleteFit(Fit fit) async {
+  void _openOwnFit(Fit fit, Object heroTag) {
+    FitViewerPage.open(context, fit: fit, heroTag: heroTag, isOwn: true);
+  }
+
+  /// A retired save has no photo left to open, so it goes straight to the
+  /// options it still has instead of to the viewer.
+  void _openSavedFit(Fit fit, Object heroTag) {
+    if (fit.isRetired) {
+      _retiredSavedFitOptions(fit);
+      return;
+    }
+
+    FitViewerPage.open(context, fit: fit, heroTag: heroTag, isOwn: false);
+  }
+
+  Future<void> _retiredSavedFitOptions(Fit fit) async {
     await AppModal.showActionSheet<void>(
       context: context,
-      title: 'Retire this fit?',
+      title: 'This fit was retired',
       message:
-          'It leaves the arena for good. Battles it already fought still '
-          'count for the fits it faced.',
-      actions: [
-        CupertinoActionSheetAction(
-          isDestructiveAction: true,
-          onPressed: () {
-            Navigator.of(context).pop();
-            _deleteFit(fit);
-          },
-          child: const Text('Retire fit'),
-        ),
-      ],
-    );
-  }
-
-  /// A saved fit is someone else's, so the only thing to offer is letting it
-  /// go — a retired one adds the explanation for why its photo is missing.
-  Future<void> _savedFitOptions(Fit fit) async {
-    final handle = fit.ownerHandle;
-
-    await AppModal.showActionSheet<void>(
-      context: context,
-      title: fit.isRetired
-          ? 'This fit was retired'
-          : handle == null
-          ? 'Saved fit'
-          : "$handle's fit",
-      message: fit.isRetired
-          ? 'It left the arena, and its photo went with it. The save is '
-                'yours to keep or clear.'
-          : null,
+          'It left the arena, and its photo went with it. The save is '
+          'yours to keep or clear.',
       actions: [
         CupertinoActionSheetAction(
           isDestructiveAction: true,
@@ -111,20 +98,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
     if (!mounted) return;
     if (failure == null) {
-      AppToast.show(context: context, message: 'Removed from saved.');
+      AppIsland.show(context: context, message: 'Removed from saved.');
     } else {
-      AppToast.error(context: context, message: failure);
-    }
-  }
-
-  Future<void> _deleteFit(Fit fit) async {
-    try {
-      await ref.read(myFitsControllerProvider.notifier).deleteFit(fit);
-      if (!mounted) return;
-      AppToast.success(context: context, message: 'Fit retired.');
-    } catch (error) {
-      if (!mounted) return;
-      AppToast.error(context: context, message: describeError(error));
+      AppIsland.error(context: context, message: failure);
     }
   }
 
@@ -175,8 +151,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             return _ProfileContent(
               summary: data,
               onEditProfile: () => _editProfile(data),
-              onOwnFitTap: _confirmDeleteFit,
-              onSavedFitTap: _savedFitOptions,
+              onOwnFitTap: _openOwnFit,
+              onSavedFitTap: _openSavedFit,
             );
           },
         ),
@@ -196,8 +172,8 @@ class _ProfileContent extends ConsumerWidget {
 
   final ProfileSummary summary;
   final VoidCallback onEditProfile;
-  final ValueChanged<Fit> onOwnFitTap;
-  final ValueChanged<Fit> onSavedFitTap;
+  final FitTileTapCallback onOwnFitTap;
+  final FitTileTapCallback onSavedFitTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

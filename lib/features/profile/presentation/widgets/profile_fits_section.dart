@@ -24,8 +24,8 @@ class ProfileFitsSection extends ConsumerStatefulWidget {
     super.key,
   });
 
-  final ValueChanged<Fit> onOwnFitTap;
-  final ValueChanged<Fit> onSavedFitTap;
+  final FitTileTapCallback onOwnFitTap;
+  final FitTileTapCallback onSavedFitTap;
 
   @override
   ConsumerState<ProfileFitsSection> createState() => _ProfileFitsSectionState();
@@ -89,7 +89,7 @@ class _OwnFits extends ConsumerWidget {
   const _OwnFits({required this.fits, required this.onFitTap, super.key});
 
   final AsyncValue<List<Fit>> fits;
-  final ValueChanged<Fit> onFitTap;
+  final FitTileTapCallback onFitTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -108,7 +108,11 @@ class _OwnFits extends ConsumerWidget {
               title: 'No fits yet',
               message: 'Upload an outfit to enter the arena.',
             )
-          : ProfileFitsGrid(fits: items, onFitTap: onFitTap),
+          : ProfileFitsGrid(
+              fits: items,
+              onFitTap: onFitTap,
+              heroTagPrefix: 'own-fit',
+            ),
     );
   }
 }
@@ -117,7 +121,7 @@ class _SavedFits extends ConsumerWidget {
   const _SavedFits({required this.fits, required this.onFitTap, super.key});
 
   final AsyncValue<List<Fit>> fits;
-  final ValueChanged<Fit> onFitTap;
+  final FitTileTapCallback onFitTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -139,7 +143,12 @@ class _SavedFits extends ConsumerWidget {
                   'Tap the bookmark on a fit in the arena to keep it here. '
                   'Only you can see what you save.',
             )
-          : ProfileFitsGrid(fits: items, onFitTap: onFitTap, showOwner: true),
+          : ProfileFitsGrid(
+              fits: items,
+              onFitTap: onFitTap,
+              heroTagPrefix: 'saved-fit',
+              showOwner: true,
+            ),
     );
   }
 }

@@ -1,4 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Saving a fit to the gallery. Android 10 and up writes through
+         MediaStore and needs no permission at all, so this is capped at 28. -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+
     <application
         android:label="versed"
         android:name="${applicationName}"

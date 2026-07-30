@@ -215,6 +215,10 @@ class _IslandShape extends StatelessWidget {
     required this.status,
   });
 
+  /// Where the corner radius stops tracking half the height, so a tall open
+  /// island reads as a rounded rectangle rather than an oval.
+  static const _maxRadius = 26.0;
+
   /// 0 is closed, 1 is open. Overshoots past 1 while the spring settles.
   final double progress;
   final _IslandGeometry geometry;
@@ -267,6 +271,12 @@ class _IslandShape extends StatelessWidget {
       Curves.easeOutBack.transform(_stage(0.4, 0.9)),
     )!;
 
+    // A capsule while it is short, easing off once it grows tall enough that
+    // a true capsule would bow out into an oval. The cutout it stands in for
+    // is a capsule; the opened island is a rounded rectangle, same as the
+    // real one.
+    final radius = math.min(height / 2, _maxRadius);
+
     return SizedBox(
       key: AppIsland.shapeKey,
       width: width,
@@ -274,10 +284,7 @@ class _IslandShape extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: AppColors.island,
-          // A capsule, because the hardware cutout it stands in for is one.
-          // The app's sharp-corner rule is about decorative shapes; this is a
-          // physical one.
-          borderRadius: BorderRadius.circular(height / 2),
+          borderRadius: BorderRadius.circular(radius),
           boxShadow: [
             BoxShadow(
               color: AppColors.island.withValues(alpha: 0.55),
@@ -287,7 +294,7 @@ class _IslandShape extends StatelessWidget {
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(height / 2),
+          borderRadius: BorderRadius.circular(radius),
           // The content is laid out at its final size the whole way through
           // and revealed by the shape growing over it. Letting it lay itself
           // out at the live width instead would reflow the text on every
@@ -301,8 +308,13 @@ class _IslandShape extends StatelessWidget {
               child: Opacity(
                 opacity: contentOpacity,
                 child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: _IslandGeometry.horizontalPadding,
+                  // The top inset is what keeps the message clear of the
+                  // sensor hardware; without it the text renders behind an
+                  // opaque cutout and is simply never seen.
+                  padding: EdgeInsets.only(
+                    left: _IslandGeometry.horizontalPadding,
+                    right: _IslandGeometry.horizontalPadding,
+                    top: geometry.contentInset,
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -346,6 +358,7 @@ class _IslandGeometry {
     required this.collapsedSize,
     required this.expandedSize,
     required this.top,
+    required this.contentInset,
   });
 
   static const horizontalPadding = 16.0;
@@ -379,12 +392,22 @@ class _IslandGeometry {
   final Size expandedSize;
   final double top;
 
+  /// Dead space kept clear at the top of the open island.
+  ///
+  /// On a Dynamic Island phone this is the cutout's own height: the sensors
+  /// are opaque hardware, so anything drawn behind them is simply invisible.
+  /// The island grows *downward* past the cutout and puts its content below
+  /// it — which is what the real one does, and why it is the only shape in
+  /// the app that gets to overlap the status bar.
+  final double contentInset;
+
   factory _IslandGeometry.of(BuildContext context, {required String message}) {
     final media = MediaQuery.of(context);
     final hasHardwareIsland = media.viewPadding.top >= _hardwareTopInset;
 
     final collapsed = hasHardwareIsland ? _hardwareSize : _syntheticSize;
     final top = hasHardwareIsland ? _hardwareTop : media.viewPadding.top + 8;
+    final contentInset = hasHardwareIsland ? _hardwareSize.height : 0.0;
 
     // Leaves a margin either side so the open island never runs to the screen
     // edge, where the corner radius would crop it.
@@ -402,15 +425,17 @@ class _IslandGeometry {
       maxWidth,
       painter.width + horizontalPadding * 2 + iconSize + iconGap,
     );
-    final height = math.max(
+    // The row of content, before the sensor area is accounted for.
+    final contentHeight = math.max(
       collapsed.height,
       painter.height + verticalPadding * 2,
     );
 
     return _IslandGeometry(
       collapsedSize: collapsed,
-      expandedSize: Size(width, height),
+      expandedSize: Size(width, contentInset + contentHeight),
       top: top,
+      contentInset: contentInset,
     );
   }
 }

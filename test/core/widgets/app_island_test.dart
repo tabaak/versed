@@ -149,6 +149,31 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('keeps its content clear of the Dynamic Island cutout', (
+    tester,
+  ) async {
+    await _raiseIsland(tester, message: 'Saved to your gallery.');
+    await tester.pump(const Duration(milliseconds: 600));
+
+    // The cutout is opaque hardware occupying y 11 through 48.33. Anything
+    // drawn above that line is behind the sensors and invisible on a real
+    // phone, however correct it looks in a simulator screenshot.
+    const cutoutBottom = 11 + 37.33;
+    expect(
+      tester.getTopLeft(find.text('Saved to your gallery.')).dy,
+      greaterThanOrEqualTo(cutoutBottom),
+    );
+    expect(
+      tester.getTopLeft(find.byType(Icon)).dy,
+      greaterThanOrEqualTo(cutoutBottom),
+    );
+
+    // And the island itself has grown down past the cutout to make room.
+    expect(_islandSize(tester).height, greaterThan(37.33));
+
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('sits below the status bar where there is no cutout', (
     tester,
   ) async {

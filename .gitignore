@@ -47,6 +47,7 @@ app.*.map.json
 # Local credentials — the service-role key used by tool/seed_arena.dart
 # bypasses RLS entirely. Never commit it.
 .env.local
+dart_defines.json
 
 # Which photos in a directory tool/tag_fits.dart has already entered. Lives
 # next to the photos, which may be inside the repo.

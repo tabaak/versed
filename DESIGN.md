@@ -25,7 +25,7 @@ Source of truth: `lib/core/theme/app_colors.dart`. Reference only, don't duplica
 | Divider | `AppColors.divider` | Hairline separators. |
 | Text primary/secondary/tertiary | `AppColors.textPrimary/textSecondary/textTertiary` | White down to dim grey. |
 | Accent | `AppColors.accent` (`#FFFFFF`) | The primary action color — active tab, primary button fill, selected card highlight. VERSED has *no* brand hue; white is the verb. Paired with `AppColors.onAccent` (black text/icons on white fills). |
-| Streak | `AppColors.streak` (amber) | Reserved exclusively for active win-streak indicators. Never used decoratively. |
+| Streak | `AppColors.streak` (amber) | Reserved exclusively for a fit's *active* win streak — the arena badge and the viewer's "in a row". A best streak is a record, not a run, so it stays white. |
 | Island | `AppColors.island` (`#000000`) | The **only** pure black in the app, and the one exception to the rule below. The notification island has to disappear into an iPhone's Dynamic Island cutout, which is true black — at `#0A0A0A` the seam shows. Never use it for anything else. |
 | Error / Success | `AppColors.error` / `AppColors.success` | Destructive actions, failed uploads / positive results. |
 
@@ -66,6 +66,8 @@ Motion and haptic feedback are part of the brand — the app should never feel l
 - Keep corners sharp (4/8/12pt scale) — no pill/capsule shapes outside true circles.
 - Make the 1v1 outfit card the hero of any screen it appears on.
 - Surface genuine metrics (votes cast, win-rate %, streaks) with tabular numerals.
+- Streaks belong to a fit, not to a person: an outfit is on a run, and the profile reports the best run any of its fits has managed. A badge appears from two straight wins up, so it stays a signal rather than decoration.
+- Withhold a streak until the vote is cast. In the arena it appears only on the card you just crowned, in the bottom-right corner the win count vacates — showing a run beforehand would put a thumb on the scale of the judgement it is a record of.
 - Pair vote taps with heavy haptics.
 
 ### Don't

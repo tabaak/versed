@@ -17,7 +17,8 @@ class FitService {
   static const _table = 'fits';
   static const _savedTable = 'saved_fits';
   static const _columns =
-      'id, owner_id, image_path, genre, wins, losses, created_at';
+      'id, owner_id, image_path, genre, wins, losses, '
+      'current_streak, best_streak, created_at';
 
   /// The saved grid asks for two things the profile grid never needs: whose
   /// fit it is, and whether the fit has since left the arena.
@@ -28,7 +29,8 @@ class FitService {
   /// ambiguous.
   static const _savedColumns =
       'fit:fits('
-      'id, owner_id, image_path, genre, wins, losses, created_at, '
+      'id, owner_id, image_path, genre, wins, losses, '
+      'current_streak, best_streak, created_at, '
       'deleted_at, hidden_at, '
       'owner:profiles!fits_owner_id_fkey(username, display_name)'
       ')';

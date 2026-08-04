@@ -18,6 +18,8 @@ class Fit {
     required this.imagePath,
     required this.wins,
     required this.losses,
+    this.currentStreak = 0,
+    this.bestStreak = 0,
     this.genre,
     this.createdAt,
     this.deletedAt,
@@ -46,6 +48,8 @@ class Fit {
       imagePath: json['image_path'] as String,
       wins: json['wins'] as int? ?? 0,
       losses: json['losses'] as int? ?? 0,
+      currentStreak: json['current_streak'] as int? ?? 0,
+      bestStreak: json['best_streak'] as int? ?? 0,
       genre: FitGenre.fromValue(json['genre'] as String?),
       createdAt: createdAt == null ? null : DateTime.parse(createdAt),
       deletedAt: deletedAt == null ? null : DateTime.parse(deletedAt),
@@ -60,6 +64,13 @@ class Fit {
   final String imagePath;
   final int wins;
   final int losses;
+
+  /// Consecutive wins the fit is on right now, zeroed by its next loss.
+  final int currentStreak;
+
+  /// The longest run [currentStreak] has ever reached. Unlike the current
+  /// streak, a loss never takes it away.
+  final int bestStreak;
 
   /// Null when the query left the column out, or when the row holds a genre
   /// this build does not know about.
@@ -83,6 +94,12 @@ class Fit {
 
   int get battles => wins + losses;
 
+  /// Whether the fit's run is worth badging. A single win is just the last
+  /// result; two in a row is the shortest thing anyone would call a streak,
+  /// and the threshold keeps the badge off most cards so it still means
+  /// something when it shows up.
+  bool get isOnStreak => currentStreak >= 2;
+
   /// Win percentage rounded to a whole number; 0 before the first battle.
   int get winRate => battles == 0 ? 0 : (wins * 100 / battles).round();
 
@@ -96,6 +113,8 @@ class Fit {
       'image_path': imagePath,
       'wins': wins,
       'losses': losses,
+      'current_streak': currentStreak,
+      'best_streak': bestStreak,
       'genre': genre?.value,
       'created_at': createdAt?.toIso8601String(),
       'deleted_at': deletedAt?.toIso8601String(),
@@ -111,6 +130,8 @@ class Fit {
     String? imagePath,
     int? wins,
     int? losses,
+    int? currentStreak,
+    int? bestStreak,
     FitGenre? genre,
     DateTime? createdAt,
     DateTime? deletedAt,
@@ -124,6 +145,8 @@ class Fit {
       imagePath: imagePath ?? this.imagePath,
       wins: wins ?? this.wins,
       losses: losses ?? this.losses,
+      currentStreak: currentStreak ?? this.currentStreak,
+      bestStreak: bestStreak ?? this.bestStreak,
       genre: genre ?? this.genre,
       createdAt: createdAt ?? this.createdAt,
       deletedAt: deletedAt ?? this.deletedAt,
@@ -142,6 +165,8 @@ class Fit {
             other.imagePath == imagePath &&
             other.wins == wins &&
             other.losses == losses &&
+            other.currentStreak == currentStreak &&
+            other.bestStreak == bestStreak &&
             other.genre == genre &&
             other.createdAt == createdAt &&
             other.deletedAt == deletedAt &&
@@ -158,6 +183,8 @@ class Fit {
       imagePath,
       wins,
       losses,
+      currentStreak,
+      bestStreak,
       genre,
       createdAt,
       deletedAt,
@@ -170,7 +197,8 @@ class Fit {
   @override
   String toString() {
     return 'Fit(id: $id, ownerId: $ownerId, imagePath: $imagePath, '
-        'wins: $wins, losses: $losses, genre: ${genre?.value}, '
+        'wins: $wins, losses: $losses, currentStreak: $currentStreak, '
+        'bestStreak: $bestStreak, genre: ${genre?.value}, '
         'createdAt: $createdAt, deletedAt: $deletedAt, hiddenAt: $hiddenAt, '
         'ownerUsername: $ownerUsername, ownerDisplayName: $ownerDisplayName)';
   }

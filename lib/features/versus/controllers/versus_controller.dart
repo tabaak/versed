@@ -51,10 +51,18 @@ class VersusController extends AsyncNotifier<VersusState> {
   ///
   /// A duplicate is reported as success: the vote it collides with is already
   /// counted, and the user has no way to act on the distinction.
+  ///
+  /// The on-screen pair is updated before the call goes out, so the winner's
+  /// crown and streak move with the reveal animation instead of a network
+  /// round trip later. Nothing rolls the patch back on failure: the pair is
+  /// replaced by [advance] either way, and the one error that is not a real
+  /// failure — a duplicate — did count the vote.
   Future<String?> submitVote({
     required String winnerId,
     required String loserId,
   }) async {
+    _applyOutcome(winnerId);
+
     try {
       await ref
           .read(versusServiceProvider)
@@ -103,6 +111,19 @@ class VersusController extends AsyncNotifier<VersusState> {
   Future<void> reload() async {
     ref.invalidateSelf();
     await future;
+  }
+
+  /// Moves the current pair's counters as if the vote had already landed.
+  void _applyOutcome(String winnerId) {
+    final current = state.value?.current;
+    if (current == null) return;
+
+    final settled = current.withOutcome(winnerId);
+    if (settled == current) return;
+
+    state = AsyncData(
+      VersusState(current: settled, upcoming: state.value?.upcoming),
+    );
   }
 
   VersusState _takeNext() {

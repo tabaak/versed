@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_crown_icon.dart';
+import '../../../../core/widgets/app_flame_icon.dart';
 import '../../models/fit.dart';
 
 /// Everything that sits under the photo in the viewer: who owns it, how it has
@@ -81,10 +82,13 @@ class FitViewerDetails extends StatelessWidget {
   }
 }
 
-/// Views and win rate, side by side.
+/// Views, win rate, and a streak when there is one, side by side.
 ///
 /// "Views" counts the battles the fit has fought: every battle is one person
 /// looking at it in the arena, and it is the only impression the app records.
+///
+/// The streak only joins them while the fit is actually on a run, which is the
+/// one thing here that can disappear — a rate settles down, a run is news.
 class FitViewerStats extends StatelessWidget {
   const FitViewerStats({required this.fit, super.key});
 
@@ -122,17 +126,39 @@ class FitViewerStats extends StatelessWidget {
             ),
           ),
         ),
+        if (fit.isOnStreak) ...[
+          const SizedBox(width: 20),
+          Semantics(
+            label: '${fit.currentStreak} wins in a row',
+            child: ExcludeSemantics(
+              child: _Stat(
+                icon: const AppFlameIcon(size: 14),
+                value: '${fit.currentStreak}',
+                label: 'in a row',
+                valueColor: AppColors.streak,
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
 }
 
 class _Stat extends StatelessWidget {
-  const _Stat({required this.icon, required this.value, required this.label});
+  const _Stat({
+    required this.icon,
+    required this.value,
+    required this.label,
+    this.valueColor,
+  });
 
   final Widget icon;
   final String value;
   final String label;
+
+  /// Amber for a live streak; the rest of the row stays monochrome.
+  final Color? valueColor;
 
   @override
   Widget build(BuildContext context) {
@@ -141,7 +167,12 @@ class _Stat extends StatelessWidget {
       children: [
         icon,
         const SizedBox(width: 6),
-        Text(value, style: AppTextStyles.tabularMetric),
+        Text(
+          value,
+          style: valueColor == null
+              ? AppTextStyles.tabularMetric
+              : AppTextStyles.tabularMetric.copyWith(color: valueColor),
+        ),
         const SizedBox(width: 4),
         Text(label, style: AppTextStyles.meta),
       ],

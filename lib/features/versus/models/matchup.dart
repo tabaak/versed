@@ -34,6 +34,33 @@ class Matchup {
     return Matchup(left: left ?? this.left, right: right ?? this.right);
   }
 
+  /// The same pair with a vote for [winnerId] already applied.
+  ///
+  /// The board keeps showing both cards through the reveal animation, so the
+  /// numbers under them have to move now rather than when the round trip lands
+  /// — the card would otherwise be gone before its own streak ticked up. The
+  /// arithmetic mirrors `cast_vote()`, and nothing is written back: this
+  /// matchup is discarded the moment the next pair arrives.
+  Matchup withOutcome(String winnerId) {
+    // A winner from some other pair would otherwise book a loss against both
+    // of these fits.
+    if (winnerId != left.id && winnerId != right.id) return this;
+
+    Fit apply(Fit fit) {
+      if (fit.id == winnerId) {
+        final streak = fit.currentStreak + 1;
+        return fit.copyWith(
+          wins: fit.wins + 1,
+          currentStreak: streak,
+          bestStreak: streak > fit.bestStreak ? streak : fit.bestStreak,
+        );
+      }
+      return fit.copyWith(losses: fit.losses + 1, currentStreak: 0);
+    }
+
+    return Matchup(left: apply(left), right: apply(right));
+  }
+
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||

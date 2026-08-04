@@ -16,6 +16,7 @@ class VersusContender extends ConsumerWidget {
     required this.imagePath,
     required this.ownerHandle,
     required this.winCount,
+    required this.streak,
     required this.isWinner,
     required this.isLoser,
     required this.isHighlighted,
@@ -33,6 +34,10 @@ class VersusContender extends ConsumerWidget {
   final String imagePath;
   final String? ownerHandle;
   final int winCount;
+
+  /// Consecutive wins the fit is on. Below two nothing is drawn — see
+  /// `Fit.isOnStreak` for why.
+  final int streak;
   final bool isWinner;
   final bool isLoser;
   final bool isHighlighted;
@@ -55,6 +60,12 @@ class VersusContender extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isSaved = ref.watch(isFitSavedProvider(fitId));
     final showDetails = isHighlighted && !isWinner && !isLoser;
+
+    // The streak is the reward for voting, not something to weigh the vote
+    // with: knowing a fit is on a run before you pick would nudge the pick.
+    // So it stays hidden through the highlight and only lights up on the card
+    // you just crowned — which is also the moment its run ticks up.
+    final showStreak = streak >= 2 && isWinner;
 
     final scale = isWinner
         ? 1.03
@@ -222,6 +233,23 @@ class VersusContender extends ConsumerWidget {
                 ),
               ),
             ),
+            // Streak — the same corner as the wins, because the two are never
+            // on screen together: the crown belongs to the highlight, the
+            // flame to the reveal that replaces it.
+            if (streak >= 2)
+              Positioned(
+                right: 8,
+                bottom: 4,
+                child: ExcludeSemantics(
+                  excluding: !showStreak,
+                  child: AnimatedOpacity(
+                    duration: duration,
+                    curve: Curves.easeOut,
+                    opacity: showStreak ? _highlightedElementOpacity : 0,
+                    child: IgnorePointer(child: StreakChip(streak: streak)),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

@@ -96,28 +96,29 @@ class ProfileStats {
   const ProfileStats({
     required this.wins,
     required this.losses,
-    required this.currentStreak,
+    required this.bestStreak,
   });
 
   static const ProfileStats empty = ProfileStats(
     wins: 0,
     losses: 0,
-    currentStreak: 0,
+    bestStreak: 0,
   );
 
   factory ProfileStats.fromJson(Map<String, dynamic> json) {
     return ProfileStats(
       wins: json['wins'] as int? ?? 0,
       losses: json['losses'] as int? ?? 0,
-      currentStreak: json['current_streak'] as int? ?? 0,
+      bestStreak: json['best_streak'] as int? ?? 0,
     );
   }
 
   final int wins;
   final int losses;
 
-  /// Consecutive wins across the user's fits, reset by the first loss.
-  final int currentStreak;
+  /// The longest run any one of the user's live fits has put together. A
+  /// record rather than a live counter: nothing takes it back.
+  final int bestStreak;
 
   int get battles => wins + losses;
 
@@ -125,14 +126,14 @@ class ProfileStats {
   int get winRate => battles == 0 ? 0 : (wins * 100 / battles).round();
 
   Map<String, dynamic> toJson() {
-    return {'wins': wins, 'losses': losses, 'current_streak': currentStreak};
+    return {'wins': wins, 'losses': losses, 'best_streak': bestStreak};
   }
 
-  ProfileStats copyWith({int? wins, int? losses, int? currentStreak}) {
+  ProfileStats copyWith({int? wins, int? losses, int? bestStreak}) {
     return ProfileStats(
       wins: wins ?? this.wins,
       losses: losses ?? this.losses,
-      currentStreak: currentStreak ?? this.currentStreak,
+      bestStreak: bestStreak ?? this.bestStreak,
     );
   }
 
@@ -142,16 +143,16 @@ class ProfileStats {
         other is ProfileStats &&
             other.wins == wins &&
             other.losses == losses &&
-            other.currentStreak == currentStreak;
+            other.bestStreak == bestStreak;
   }
 
   @override
-  int get hashCode => Object.hash(wins, losses, currentStreak);
+  int get hashCode => Object.hash(wins, losses, bestStreak);
 
   @override
   String toString() {
     return 'ProfileStats(wins: $wins, losses: $losses, '
-        'currentStreak: $currentStreak)';
+        'bestStreak: $bestStreak)';
   }
 }
 

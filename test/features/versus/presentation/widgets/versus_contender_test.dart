@@ -33,8 +33,11 @@ Future<({List<String> events})> _pumpCard(
   WidgetTester tester, {
   List<Fit> saved = const [],
   bool isHighlighted = true,
+  bool isWinner = false,
+  bool isLoser = false,
   String? ownerHandle = '@styleuser',
   int winCount = 42,
+  int streak = 0,
 }) async {
   final events = <String>[];
 
@@ -55,8 +58,9 @@ Future<({List<String> events})> _pumpCard(
                 imagePath: 'user-1/fit.jpg',
                 ownerHandle: ownerHandle,
                 winCount: winCount,
-                isWinner: false,
-                isLoser: false,
+                streak: streak,
+                isWinner: isWinner,
+                isLoser: isLoser,
                 isHighlighted: isHighlighted,
                 isDimmed: false,
                 duration: Duration.zero,
@@ -75,6 +79,16 @@ Future<({List<String> events})> _pumpCard(
 
   await tester.pump();
   return (events: events);
+}
+
+/// The fade the card wraps [target] in. Nearest first: the card's own fade-out
+/// for a lost round sits further up the tree.
+double _opacityAround(WidgetTester tester, Finder target) {
+  return tester
+      .widget<AnimatedOpacity>(
+        find.ancestor(of: target, matching: find.byType(AnimatedOpacity)).first,
+      )
+      .opacity;
 }
 
 void main() {
@@ -127,16 +141,7 @@ void main() {
   ) async {
     await _pumpCard(tester);
 
-    final metadata = tester.widget<AnimatedOpacity>(
-      find
-          .ancestor(
-            of: find.byType(ContenderMetadata),
-            matching: find.byType(AnimatedOpacity),
-          )
-          .first,
-    );
-
-    expect(metadata.opacity, 0.82);
+    expect(_opacityAround(tester, find.text('@styleuser')), 0.82);
     expect(find.text('@styleuser'), findsOneWidget);
   });
 
@@ -145,16 +150,7 @@ void main() {
   ) async {
     await _pumpCard(tester, isHighlighted: false);
 
-    final metadata = tester.widget<AnimatedOpacity>(
-      find
-          .ancestor(
-            of: find.byType(ContenderMetadata),
-            matching: find.byType(AnimatedOpacity),
-          )
-          .first,
-    );
-
-    expect(metadata.opacity, 0);
+    expect(_opacityAround(tester, find.text('@styleuser')), 0);
     expect(find.bySemanticsLabel('@styleuser'), findsNothing);
   });
 
@@ -163,7 +159,7 @@ void main() {
   ) async {
     await _pumpCard(tester, ownerHandle: null);
 
-    expect(find.text('@styleuser'), findsNothing);
+    expect(find.textContaining('@'), findsNothing);
     expect(find.text('42'), findsOneWidget);
     expect(find.bySemanticsLabel('42 wins'), findsOneWidget);
   });
@@ -180,12 +176,12 @@ void main() {
     final position = tester.widget<Positioned>(
       find
           .ancestor(
-            of: find.byType(ContenderMetadata),
+            of: find.byType(AppCrownIcon),
             matching: find.byType(Positioned),
           )
           .first,
     );
-    expect(position.right, 4);
+    expect(position.right, 8);
     expect(position.bottom, 4);
   });
 
@@ -194,25 +190,65 @@ void main() {
   ) async {
     await _pumpCard(tester);
 
-    final bookmarkOpacity = tester.widget<AnimatedOpacity>(
-      find
-          .ancestor(
-            of: find.byType(SaveFitButton),
-            matching: find.byType(AnimatedOpacity),
-          )
-          .first,
-    );
-    final metadataOpacity = tester.widget<AnimatedOpacity>(
-      find
-          .ancestor(
-            of: find.byType(ContenderMetadata),
-            matching: find.byType(AnimatedOpacity),
-          )
-          .first,
+    expect(_opacityAround(tester, find.byType(SaveFitButton)), 0.82);
+    expect(_opacityAround(tester, find.byType(AppCrownIcon)), 0.82);
+  });
+
+  testWidgets('a run of two or more is badged once the card wins', (
+    tester,
+  ) async {
+    await _pumpCard(tester, streak: 3, isWinner: true, isHighlighted: false);
+
+    expect(_opacityAround(tester, find.byType(StreakChip)), 0.82);
+    expect(find.bySemanticsLabel('3 wins in a row'), findsOneWidget);
+  });
+
+  testWidgets('a single win is not a streak', (tester) async {
+    await _pumpCard(tester, streak: 1, isWinner: true, isHighlighted: false);
+
+    expect(find.byType(StreakChip), findsNothing);
+  });
+
+  testWidgets('a fit with no run at all is not badged', (tester) async {
+    await _pumpCard(tester, streak: 0, isWinner: true, isHighlighted: false);
+
+    expect(find.byType(StreakChip), findsNothing);
+  });
+
+  testWidgets('the streak stays hidden while the card is merely highlighted', (
+    tester,
+  ) async {
+    // Seeing a run before voting would nudge the vote, so the badge waits for
+    // the crown even though the handle and win count are already out.
+    await _pumpCard(tester, streak: 4);
+
+    expect(_opacityAround(tester, find.byType(StreakChip)), 0);
+    expect(_opacityAround(tester, find.byType(AppCrownIcon)), 0.82);
+    expect(find.bySemanticsLabel('4 wins in a row'), findsNothing);
+  });
+
+  testWidgets('the streak takes the corner the win count had', (tester) async {
+    await _pumpCard(tester, streak: 4, isWinner: true, isHighlighted: false);
+
+    Positioned cornerOf(Finder target) => tester.widget<Positioned>(
+      find.ancestor(of: target, matching: find.byType(Positioned)).first,
     );
 
-    expect(bookmarkOpacity.opacity, 0.82);
-    expect(metadataOpacity.opacity, 0.82);
+    final streakCorner = cornerOf(find.byType(StreakChip));
+    final winsCorner = cornerOf(find.byType(AppCrownIcon));
+
+    expect(streakCorner.right, winsCorner.right);
+    expect(streakCorner.bottom, winsCorner.bottom);
+    // ...and the win count is out of the way while it is there.
+    expect(_opacityAround(tester, find.byType(AppCrownIcon)), 0);
+  });
+
+  testWidgets('the losing card is not badged for the run it just ended', (
+    tester,
+  ) async {
+    await _pumpCard(tester, streak: 4, isLoser: true, isHighlighted: false);
+
+    expect(_opacityAround(tester, find.byType(StreakChip)), 0);
   });
 
   testWidgets('an already saved fit shows a filled bookmark', (tester) async {

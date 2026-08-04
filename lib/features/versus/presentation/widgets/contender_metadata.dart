@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_crown_icon.dart';
+import '../../../../core/widgets/app_flame_icon.dart';
 
 /// The owner and win count revealed along the foot of a contender.
 class ContenderMetadata extends StatelessWidget {
@@ -52,6 +53,40 @@ class ContenderMetadata extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// The amber run-in-progress badge: a flame and the number of straight wins.
+///
+/// Amber is spent here and nowhere else, so a card wearing one is the only
+/// colour on the board.
+class StreakChip extends StatelessWidget {
+  const StreakChip({required this.streak, super.key});
+
+  final int streak;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: '$streak wins in a row',
+      child: ExcludeSemantics(
+        child: MetadataChip(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const AppFlameIcon(),
+              const SizedBox(width: 4),
+              Text(
+                '$streak',
+                style: AppTextStyles.cardMetadata.copyWith(
+                  color: AppColors.streak,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

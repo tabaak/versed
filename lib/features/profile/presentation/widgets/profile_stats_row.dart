@@ -4,7 +4,10 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../models/profile_model.dart';
 
-/// Four-up battle record: wins, losses, win rate and current streak.
+/// Four-up battle record: wins, losses, win rate and best streak.
+///
+/// The streak here is a record, not a live counter — an active run belongs to
+/// one fit and is badged on that fit, so nothing in this row is amber.
 class ProfileStatsRow extends StatelessWidget {
   const ProfileStatsRow({required this.stats, super.key});
 
@@ -27,11 +30,7 @@ class ProfileStatsRow extends StatelessWidget {
             const _Divider(),
             _Stat(value: '${stats.winRate}%', label: 'Win rate'),
             const _Divider(),
-            _Stat(
-              value: '${stats.currentStreak}',
-              label: 'Streak',
-              valueColor: stats.currentStreak > 0 ? AppColors.streak : null,
-            ),
+            _Stat(value: '${stats.bestStreak}', label: 'Best streak'),
           ],
         ),
       ),
@@ -40,11 +39,10 @@ class ProfileStatsRow extends StatelessWidget {
 }
 
 class _Stat extends StatelessWidget {
-  const _Stat({required this.value, required this.label, this.valueColor});
+  const _Stat({required this.value, required this.label});
 
   final String value;
   final String label;
-  final Color? valueColor;
 
   @override
   Widget build(BuildContext context) {
@@ -61,11 +59,22 @@ class _Stat extends StatelessWidget {
               style: AppTextStyles.tabularMetric.copyWith(
                 fontSize: 22,
                 fontWeight: FontWeight.w700,
-                color: valueColor ?? AppColors.textPrimary,
+                color: AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 4),
-            Text(label, maxLines: 1, style: AppTextStyles.meta),
+            // "Best streak" is the widest of the four labels and the cells are
+            // even, so it sets the floor — shrink rather than ellipsize when
+            // the screen is narrow or the text scale is up.
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                maxLines: 1,
+                textAlign: TextAlign.center,
+                style: AppTextStyles.meta,
+              ),
+            ),
           ],
         ),
       ),

@@ -6,8 +6,9 @@ import '../../models/profile_model.dart';
 
 /// Four-up battle record: wins, losses, win rate and best streak.
 ///
-/// The streak here is a record, not a live counter — an active run belongs to
-/// one fit and is badged on that fit, so nothing in this row is amber.
+/// The streak carries the amber even though it is a record rather than a run
+/// in progress — it is the one number here that is not a plain tally, and the
+/// colour is what says so at a glance.
 class ProfileStatsRow extends StatelessWidget {
   const ProfileStatsRow({required this.stats, super.key});
 
@@ -30,7 +31,13 @@ class ProfileStatsRow extends StatelessWidget {
             const _Divider(),
             _Stat(value: '${stats.winRate}%', label: 'Win rate'),
             const _Divider(),
-            _Stat(value: '${stats.bestStreak}', label: 'Best streak'),
+            _Stat(
+              value: '${stats.bestStreak}',
+              label: 'Best streak',
+              // A profile that has never won anything has no record to
+              // colour, and a gold zero reads as a bug.
+              valueColor: stats.bestStreak > 0 ? AppColors.streak : null,
+            ),
           ],
         ),
       ),
@@ -39,10 +46,13 @@ class ProfileStatsRow extends StatelessWidget {
 }
 
 class _Stat extends StatelessWidget {
-  const _Stat({required this.value, required this.label});
+  const _Stat({required this.value, required this.label, this.valueColor});
 
   final String value;
   final String label;
+
+  /// Amber for the streak; the other three stay white.
+  final Color? valueColor;
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +69,7 @@ class _Stat extends StatelessWidget {
               style: AppTextStyles.tabularMetric.copyWith(
                 fontSize: 22,
                 fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
+                color: valueColor ?? AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 4),

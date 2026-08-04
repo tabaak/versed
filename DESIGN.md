@@ -25,7 +25,7 @@ Source of truth: `lib/core/theme/app_colors.dart`. Reference only, don't duplica
 | Divider | `AppColors.divider` | Hairline separators. |
 | Text primary/secondary/tertiary | `AppColors.textPrimary/textSecondary/textTertiary` | White down to dim grey. |
 | Accent | `AppColors.accent` (`#FFFFFF`) | The primary action color — active tab, primary button fill, selected card highlight. VERSED has *no* brand hue; white is the verb. Paired with `AppColors.onAccent` (black text/icons on white fills). |
-| Streak | `AppColors.streak` (amber) | Reserved exclusively for a fit's *active* win streak — the arena badge and the viewer's "in a row". A best streak is a record, not a run, so it stays white. |
+| Streak | `AppColors.streak` (amber) | Reserved exclusively for streak numbers — the arena badge, the viewer's "in a row", and the profile's best streak. Never used decoratively, and never on a zero: a profile with no record to show keeps the number white. |
 | Island | `AppColors.island` (`#000000`) | The **only** pure black in the app, and the one exception to the rule below. The notification island has to disappear into an iPhone's Dynamic Island cutout, which is true black — at `#0A0A0A` the seam shows. Never use it for anything else. |
 | Error / Success | `AppColors.error` / `AppColors.success` | Destructive actions, failed uploads / positive results. |
 

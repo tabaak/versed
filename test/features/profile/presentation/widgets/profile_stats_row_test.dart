@@ -14,6 +14,21 @@ Future<void> _pumpRow(WidgetTester tester, ProfileStats stats) {
   );
 }
 
+/// The colour of one stat's value, found through the cell's own semantics
+/// label so a number that appears twice in the row is not mistaken for the
+/// other one.
+Color? _colorOf(WidgetTester tester, String value, {required String label}) {
+  final cell = find.byWidgetPredicate(
+    (widget) =>
+        widget is Semantics && widget.properties.label == '$label: $value',
+  );
+
+  return tester
+      .widget<Text>(find.descendant(of: cell, matching: find.text(value)))
+      .style
+      ?.color;
+}
+
 void main() {
   testWidgets('shows the best streak rather than a live one', (tester) async {
     await _pumpRow(
@@ -28,18 +43,22 @@ void main() {
     expect(find.text('Best streak'), findsOneWidget);
   });
 
-  testWidgets('stays monochrome — amber belongs to a live run on a fit', (
-    tester,
-  ) async {
+  testWidgets('the streak is the only amber number in the row', (tester) async {
     await _pumpRow(
       tester,
       const ProfileStats(wins: 3, losses: 0, bestStreak: 3),
     );
 
-    final values = tester.widgetList<Text>(find.byType(Text));
-    for (final text in values) {
-      expect(text.style?.color, isNot(AppColors.streak));
-    }
+    expect(_colorOf(tester, '3', label: 'Best streak'), AppColors.streak);
+    expect(_colorOf(tester, '3', label: 'Wins'), AppColors.textPrimary);
+    expect(_colorOf(tester, '0', label: 'Losses'), AppColors.textPrimary);
+    expect(_colorOf(tester, '100%', label: 'Win rate'), AppColors.textPrimary);
+  });
+
+  testWidgets('a profile with no record yet gets no gold zero', (tester) async {
+    await _pumpRow(tester, ProfileStats.empty);
+
+    expect(_colorOf(tester, '0', label: 'Best streak'), AppColors.textPrimary);
   });
 
   testWidgets('a profile with no battles reads zero rather than blank', (

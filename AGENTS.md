@@ -26,7 +26,6 @@ To keep the project clean, modular, and easy to scale for 3 parallel developers,
 lib/
 ├── core/                         # Shared components, utilities, and services
 │   ├── theme/                    # App theme, colors, typography
-│   ├── router/                   # Navigation (e.g., go_router)
 │   ├── services/                 # Shared services (Supabase client configuration)
 │   │   ├── app_initializer.dart  # Centralized app initializer
 │   │   └── supabase_service.dart # Supabase client and its provider
@@ -124,38 +123,52 @@ To maintain a high-quality, maintainable, and clean user interface, follow these
    * All bottom sheets must be displayed using the unified [AppModal.showBottomSheet] utility to ensure consistent wrapping, styling, margins, keyboard adjustments, and drag/close behaviors.
 
 
-### 6.4. Routing Guidelines (GoRouter Best Practices)
-To prevent merge conflicts in navigation and maintain declarative routing:
+### 6.4. Routing Guidelines (Navigator 1.0)
 
-1. **Decentralized Route Definition:** Do not write GoRoute builders directly inside the global `app_router.dart`. Instead, each page/feature should declare its route as a static getter or method inside the Page class:
+There is **no router package**. The app is a single `CupertinoApp` with `home: const AuthGate()`, and every screen change is an imperative push on the one root navigator. Do not add `go_router` (or any router) back without a reason that needs it — deep links or web URLs would be such a reason; nothing currently does.
+
+1. **Each page owns how it is opened.** Rather than a central route table, a pushed page exposes a `static` opener that takes what it needs and does the push itself. This is what keeps navigation out of the caller and avoids the merge conflicts a shared route file causes:
    ```dart
-   // Inside lib/features/auth/presentation/pages/auth_page.dart
-   class AuthPage extends ConsumerWidget {
-     static const String path = '/auth';
-     static const String name = 'auth';
-
-     static GoRoute get route => GoRoute(
-           path: path,
-           name: name,
-           builder: (context, state) => const AuthPage(),
-         );
+   // Inside lib/features/profile/presentation/pages/public_profile_page.dart
+   class PublicProfilePage extends ConsumerWidget {
+     static Future<void> open(
+       BuildContext context, {
+       required String userId,
+       String? handle,
+     }) {
+       return Navigator.of(context).push<void>(
+         CupertinoPageRoute<void>(
+           builder: (_) => PublicProfilePage(userId: userId, handle: handle),
+         ),
+       );
+     }
      // ...
    }
    ```
-   The global router (`lib/core/router/app_router.dart`) imports the pages and simply lists their routes:
-   ```dart
-   final goRouter = GoRouter(
-     routes: [
-       AuthPage.route,
-       ProfilePage.route,
-     ],
-   );
-   ```
-2. **Named Navigation:** Always navigate using named routes instead of path strings to prevent broken links if path names change:
-   * **Correct:** `context.goNamed(AuthPage.name)`
-   * **Incorrect:** `context.go('/auth')`
-3. **No Direct Navigator 1.0:** Do not use `Navigator.push(...)` or `Navigator.pop(...)` directly in UI logic unless absolutely necessary (e.g., temporary system dialog pop). Use GoRouter methods (`context.pushNamed(...)`, `context.goNamed(...)`, `context.pop()`).
-4. **Auth Guards & Redirects:** Put all authentication-based routing restrictions (e.g., forcing guest users to login) inside the `redirect` property of `GoRouter` reactively listening to a global authentication state provider, rather than doing manual imperative redirects inside UI classes.
+   Callers then write `PublicProfilePage.open(context, userId: fit.ownerId)` and know nothing about routes. A page that hands something back types the push and returns it (`Future<bool?>` over `push<bool>`).
+
+   `FitViewerPage` and `PublicProfilePage` follow this. The rest — `SettingsPage`, `EditProfilePage`, `ChooseHandlePage` — are still pushed inline by their callers; prefer the opener when adding a page, and when a page picks up a second call site.
+2. **`CupertinoPageRoute` by default,** so the iOS edge-swipe-back gesture and the platform transition come for free. A custom `PageRoute` is only warranted when the transition itself is the point — `FitViewerRoute` is the one instance, transparent so the grid stays visible behind the photo's Hero flight.
+3. **`Navigator.of(context).pop()` is the correct way to dismiss.** It is not a workaround. Guard it with `if (!mounted) return` after any `await`, since the page may be gone by the time the future completes.
+4. **Auth gating is a widget, not a redirect.** `AuthGate` watches `authControllerProvider` and `profileControllerProvider` and *builds* the auth page, the pick-a-handle step, or `HomeShell`. Add new launch-time gates there by extending that switch — never by imperatively pushing or popping from inside a page in response to auth state.
+5. **Do not push tabs.** `HomeShell` keeps Versus, Upload, and Profile alive in an `IndexedStack`; switching tabs is state, not navigation. Only pages layered *over* the shell (settings, edit profile, a public profile, the fit viewer) get pushed.
+
+#### Cross-feature navigation
+
+A feature must not import another feature's page just to push it. Where a widget needs to open a screen that belongs elsewhere, it takes a callback and the *caller* supplies the destination:
+
+```dart
+// fits/ knows nothing about profile/; the caller wires the two together.
+FitViewerPage.open(
+  context,
+  fit: fit,
+  heroTag: heroTag,
+  isOwn: false,
+  onOwnerTap: () => PublicProfilePage.open(context, userId: fit.ownerId),
+);
+```
+
+The exception is a top-level tab page, which has no caller above it to inject the callback — `VersusPage` importing `PublicProfilePage` directly is accepted for that reason. Keep such imports one-directional so no cycle forms.
 
 ---
 

@@ -4,6 +4,15 @@ A Flutter app for head-to-head outfit battles and curation. State-managed with R
 
 ---
 
+## 📱 Screenshots
+
+| The arena | Your profile |
+|:---:|:---:|
+| <img src="docs/battle.png" width="280" alt="Two casual outfits stacked diagonally with a VS badge at the seam, category strip across the top"> | <img src="docs/profile.png" width="280" alt="Profile showing wins, losses, win rate and best streak above a grid of saved fits"> |
+| A pair drawn from one category — double-tap the one that wins. | The battle record, over the grid of fits you have saved. |
+
+---
+
 ## 🛠 Tech Stack
 
 * **Framework:** Flutter (iOS / Android)

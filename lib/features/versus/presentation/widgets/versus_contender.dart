@@ -27,6 +27,7 @@ class VersusContender extends ConsumerWidget {
     required this.onTapDown,
     required this.onLongPress,
     required this.onToggleSave,
+    required this.onOwnerTap,
     super.key,
   });
 
@@ -53,6 +54,10 @@ class VersusContender extends ConsumerWidget {
   final ValueChanged<Offset> onTapDown;
   final VoidCallback onLongPress;
   final VoidCallback onToggleSave;
+
+  /// Opens the profile behind [ownerHandle]. Live only while the card is
+  /// highlighted, alongside the bookmark.
+  final VoidCallback onOwnerTap;
 
   static const _highlightedElementOpacity = 0.82;
 
@@ -172,7 +177,10 @@ class VersusContender extends ConsumerWidget {
                 ),
               ),
             ),
-            // Handle — bottom left, truncated to avoid overlapping wins.
+            // Handle — bottom left, truncated to avoid overlapping wins, and a
+            // way through to whoever entered the fit. Like the bookmark, it
+            // only takes taps while the card is highlighted: the rest of the
+            // time the whole card belongs to the vote.
             if (ownerHandle != null && ownerHandle!.trim().isNotEmpty)
               Positioned(
                 left: 8,
@@ -185,15 +193,12 @@ class VersusContender extends ConsumerWidget {
                     curve: Curves.easeOut,
                     opacity: showDetails ? _highlightedElementOpacity : 0,
                     child: IgnorePointer(
+                      ignoring: !showDetails,
                       child: Align(
                         alignment: Alignment.bottomLeft,
-                        child: MetadataChip(
-                          child: Text(
-                            ownerHandle!.trim(),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTextStyles.cardMetadata,
-                          ),
+                        child: OwnerHandleChip(
+                          handle: ownerHandle!.trim(),
+                          onTap: onOwnerTap,
                         ),
                       ),
                     ),

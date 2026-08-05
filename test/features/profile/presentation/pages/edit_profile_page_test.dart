@@ -177,10 +177,7 @@ void main() {
     final popResults = <bool>[];
     final controller = await _pumpEditProfile(tester, popResults: popResults);
 
-    await tester.enterText(
-      find.byType(CupertinoTextField).first,
-      'Ada Byron',
-    );
+    await tester.enterText(find.byType(CupertinoTextField).first, 'Ada Byron');
     await tester.pump();
     await tester.tap(find.text('Save changes'));
     await tester.pumpAndSettle();
@@ -191,9 +188,7 @@ void main() {
     expect(popResults, [true]);
   });
 
-  testWidgets('clearing the display name is a saveable change', (
-    tester,
-  ) async {
+  testWidgets('clearing the display name is a saveable change', (tester) async {
     final controller = await _pumpEditProfile(tester);
 
     await tester.enterText(find.byType(CupertinoTextField).first, '');
@@ -256,10 +251,7 @@ void main() {
     tester,
   ) async {
     final pickService = _FakePickService();
-    final controller = await _pumpEditProfile(
-      tester,
-      pickService: pickService,
-    );
+    final controller = await _pumpEditProfile(tester, pickService: pickService);
 
     await tester.tap(find.text('Add photo'));
     await tester.pumpAndSettle();

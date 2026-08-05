@@ -22,6 +22,7 @@ A modern Flutter app for head-to-head outfit battles and curation. Built on Flut
 * **Live matchups** — the arena asks `next_matchup()` for a pair the user has not judged yet, keeping a small prefetched queue so the next battle appears the instant a winner is crowned. Votes go through `cast_vote()`, which records the vote and moves both fits' counters — wins, losses, and the winner's streak — in one transaction. A skeleton loading state (`MatchupBoardSkeleton`, built on the shared `AppSkeleton` shimmer) covers the gap while the first matchup loads.
 * **Uploads** — pick from camera or library, preview in the same 4:5 frame the arena crops to, pick the genre it competes in, then enter. Photos live in a public `fits` storage bucket under the owner's uuid.
 * **Fit viewer** — tap a fit (in the profile grid or a versus card) to open it full-screen with a hero transition, its view count, win rate and any run it is on, and actions to share it or save it to a `VERSED` camera-roll album via `FitExportService`. Both actions re-download the full-size original rather than reusing the screen-scaled image already on display.
+* **Public profiles** — the owner's handle is a way through to them, both under a fit in the viewer and on a highlighted arena card: it opens a read-only `PublicProfilePage` with their identity, battle record and live fits. No settings, no edit button, and no saved section — what someone has bookmarked stays private to them. Backed by `publicProfileProvider`, an auto-disposed family that reads the profile row, `profile_stats()`, and their fits in one go.
 * **Moderation** — long-press a fit in the arena to report it; a fit leaves the pool once enough people agree. Tap your own fit in the profile grid to retire it — a soft delete, so the battles it already fought still count for the fits it faced.
 * **Settings** — account preferences and sign-out live on a dedicated settings page off the profile tab, reached via `AppNavigationBar`.
 * **App island** — an overlay pill for confirmations and errors that, on Dynamic Island hardware, opens from the exact footprint of the cutout so the notification reads as the cutout itself stretching open; on every other device it floats under the status bar instead.
@@ -52,7 +53,7 @@ lib/
 │   ├── fits/                     # Fit model, queries, uploads, fit viewer, export (share/save to camera roll)
 │   ├── versus/                   # Outfit battle screen (VersusPage), matchmaking, voting, genre filtering
 │   ├── upload/                   # Photo picker, 4:5 preview, entering the arena
-│   ├── profile/                  # Profile, battle record, fits grid, handle onboarding, settings page
+│   ├── profile/                  # Profile, battle record, fits grid, handle onboarding, public profiles, settings page
 │   └── home/                     # Signed-in tab shell (HomeShell)
 
 ### Core Layering

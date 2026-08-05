@@ -16,18 +16,30 @@ class ProfileService {
   static const _table = 'profiles';
   static const _columns = 'id, username, display_name, avatar_url, created_at';
 
-  /// Reads a profile, creating the row if it is somehow missing.
+  /// Reads someone's profile without writing anything, returning null when
+  /// there is no row to read.
   ///
-  /// The `on_auth_user_created` trigger normally creates it at sign-up; the
-  /// insert here covers accounts that predate the trigger.
-  Future<Profile> fetchProfile(String id) async {
+  /// This is what the public profile view uses: looking at another user must
+  /// never conjure a row for them, so the insert in [fetchProfile] is kept out
+  /// of the read path.
+  Future<Profile?> fetchProfileById(String id) async {
     final row = await _client
         .from(_table)
         .select(_columns)
         .eq('id', id)
         .maybeSingle();
 
-    if (row != null) return Profile.fromJson(row);
+    return row == null ? null : Profile.fromJson(row);
+  }
+
+  /// Reads the signed-in user's own profile, creating the row if it is somehow
+  /// missing.
+  ///
+  /// The `on_auth_user_created` trigger normally creates it at sign-up; the
+  /// insert here covers accounts that predate the trigger.
+  Future<Profile> fetchProfile(String id) async {
+    final existing = await fetchProfileById(id);
+    if (existing != null) return existing;
 
     final created = await _client
         .from(_table)

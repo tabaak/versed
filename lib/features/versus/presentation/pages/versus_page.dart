@@ -16,6 +16,7 @@ import '../../../fits/controllers/saved_fits_controller.dart';
 import '../../../fits/models/fit.dart';
 import '../../../fits/models/fit_genre.dart';
 import '../../../fits/presentation/widgets/fit_image.dart';
+import '../../../profile/presentation/pages/public_profile_page.dart';
 import '../../controllers/arena_filter_controller.dart';
 import '../../controllers/versus_controller.dart';
 import '../../models/matchup.dart';
@@ -273,6 +274,31 @@ class _VersusPageState extends ConsumerState<VersusPage> {
     }
   }
 
+  /// Opens the profile of whoever entered the fit on [side].
+  ///
+  /// The board is put back to neutral on the way out. Leaving it highlighted
+  /// would strand a half-decided matchup behind the profile — and worse, a tap
+  /// on the same card after coming back would land inside the double-tap
+  /// window and read as a vote nobody meant to cast.
+  Future<void> _openOwnerProfile(VersusSide side) async {
+    final matchup = ref.read(versusControllerProvider).value?.current;
+    if (matchup == null) return;
+
+    final fit = matchup.fitOn(side);
+
+    _highlightTimer?.cancel();
+    setState(() {
+      _highlighted = null;
+      _lastTapSide = null;
+    });
+
+    await PublicProfilePage.open(
+      context,
+      userId: fit.ownerId,
+      handle: fit.ownerHandle,
+    );
+  }
+
   /// Saves the fit on [side], or drops it if it was already saved. Saves are
   /// private, so the confirmation says where it went.
   Future<void> _toggleSave(VersusSide side) async {
@@ -422,6 +448,7 @@ class _VersusPageState extends ConsumerState<VersusPage> {
                         onTapDown: _handleTapDown,
                         onLongPress: _showFitOptions,
                         onToggleSave: _toggleSave,
+                        onOwnerTap: _openOwnerProfile,
                         onBurstCompleted: _removeBurst,
                       );
                     },
@@ -502,6 +529,7 @@ class _Arena extends StatelessWidget {
     required this.onTapDown,
     required this.onLongPress,
     required this.onToggleSave,
+    required this.onOwnerTap,
     required this.onBurstCompleted,
     super.key,
   });
@@ -516,6 +544,7 @@ class _Arena extends StatelessWidget {
   final void Function(VersusSide side, Offset globalPosition) onTapDown;
   final ValueChanged<VersusSide> onLongPress;
   final ValueChanged<VersusSide> onToggleSave;
+  final ValueChanged<VersusSide> onOwnerTap;
   final ValueChanged<int> onBurstCompleted;
 
   @override
@@ -559,6 +588,7 @@ class _Arena extends StatelessWidget {
                     onTapDown: onTapDown,
                     onLongPress: onLongPress,
                     onToggleSave: onToggleSave,
+                    onOwnerTap: onOwnerTap,
                   ),
                 ),
               ),

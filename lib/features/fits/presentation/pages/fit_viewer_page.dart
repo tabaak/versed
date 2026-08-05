@@ -30,6 +30,7 @@ class FitViewerPage extends ConsumerStatefulWidget {
     required this.fit,
     required this.heroTag,
     required this.isOwn,
+    this.onOwnerTap,
     super.key,
   });
 
@@ -38,15 +39,26 @@ class FitViewerPage extends ConsumerStatefulWidget {
   /// [heroTag] must match the tag on the tile that was tapped, or the photo
   /// fades in instead of zooming. [isOwn] decides both whether the owner's
   /// handle is worth showing and what the overflow menu can offer.
+  ///
+  /// [onOwnerTap] makes that handle a way through to whoever posted the fit.
+  /// The callback comes from the caller rather than being built here because
+  /// the profile is another feature's screen, and the fits feature has no
+  /// business importing it.
   static Future<void> open(
     BuildContext context, {
     required Fit fit,
     required Object heroTag,
     required bool isOwn,
+    VoidCallback? onOwnerTap,
   }) {
     return Navigator.of(context).push<void>(
       FitViewerRoute<void>(
-        builder: (_) => FitViewerPage(fit: fit, heroTag: heroTag, isOwn: isOwn),
+        builder: (_) => FitViewerPage(
+          fit: fit,
+          heroTag: heroTag,
+          isOwn: isOwn,
+          onOwnerTap: onOwnerTap,
+        ),
       ),
     );
   }
@@ -57,6 +69,9 @@ class FitViewerPage extends ConsumerStatefulWidget {
   /// True when the signed-in user owns the fit — i.e. it came from their own
   /// grid rather than their saved one.
   final bool isOwn;
+
+  /// Opens the owner's profile. Null leaves the handle as plain text.
+  final VoidCallback? onOwnerTap;
 
   @override
   ConsumerState<FitViewerPage> createState() => _FitViewerPageState();
@@ -324,6 +339,7 @@ class _FitViewerPageState extends ConsumerState<FitViewerPage> {
                     isSharing: _isSharing,
                     onToggleSave: _toggleSave,
                     onShare: _share,
+                    onOwnerTap: widget.onOwnerTap,
                   ),
                 ),
               ],

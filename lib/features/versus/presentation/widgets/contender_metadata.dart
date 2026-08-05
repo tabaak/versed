@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
@@ -85,6 +86,76 @@ class StreakChip extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The owner's handle in the corner of a card, and the way through to their
+/// profile.
+///
+/// Tappable on the same terms as the bookmark it shares the card with: live
+/// only while the card is highlighted, and only as wide as the handle itself,
+/// so the surface a double-tap has to hit stays essentially the whole card.
+/// [onTap] null leaves the chip inert, which is what the loading and reveal
+/// states want.
+class OwnerHandleChip extends StatefulWidget {
+  const OwnerHandleChip({required this.handle, this.onTap, super.key});
+
+  final String handle;
+  final VoidCallback? onTap;
+
+  @override
+  State<OwnerHandleChip> createState() => _OwnerHandleChipState();
+}
+
+class _OwnerHandleChipState extends State<OwnerHandleChip> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (widget.onTap != null && _pressed != value) {
+      setState(() => _pressed = value);
+    }
+  }
+
+  void _handleTap() {
+    // The same light tick the bookmark gets: a look at someone, not a verdict
+    // on them.
+    HapticFeedback.lightImpact();
+    widget.onTap!();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final chip = MetadataChip(
+      child: Text(
+        widget.handle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: AppTextStyles.cardMetadata,
+      ),
+    );
+
+    if (widget.onTap == null) return chip;
+
+    return Semantics(
+      button: true,
+      label: "Open ${widget.handle}'s profile",
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _handleTap,
+        onTapDown: (_) => _setPressed(true),
+        onTapUp: (_) => _setPressed(false),
+        onTapCancel: () => _setPressed(false),
+        child: AnimatedScale(
+          scale: _pressed ? 0.94 : 1,
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 150),
+          curve: Curves.easeOut,
+          child: chip,
         ),
       ),
     );

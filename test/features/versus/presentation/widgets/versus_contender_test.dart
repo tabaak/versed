@@ -69,6 +69,7 @@ Future<({List<String> events})> _pumpCard(
                 onTapDown: (_) => events.add('vote'),
                 onLongPress: () => events.add('long-press'),
                 onToggleSave: () => events.add('save'),
+                onOwnerTap: () => events.add('owner'),
               ),
             ),
           ),
@@ -152,6 +153,44 @@ void main() {
 
     expect(_opacityAround(tester, find.text('@styleuser')), 0);
     expect(find.bySemanticsLabel('@styleuser'), findsNothing);
+  });
+
+  testWidgets('the handle takes the tap instead of the vote surface', (
+    tester,
+  ) async {
+    final result = await _pumpCard(tester);
+
+    await tester.tap(find.byType(OwnerHandleChip));
+    await tester.pump();
+
+    expect(result.events, ['owner']);
+  });
+
+  testWidgets('the handle is untouchable before the card is highlighted', (
+    tester,
+  ) async {
+    // Otherwise the very first tap on the bottom-left of a card would open a
+    // profile instead of highlighting the outfit.
+    final result = await _pumpCard(tester, isHighlighted: false);
+
+    await tester.tap(find.byType(OwnerHandleChip), warnIfMissed: false);
+    await tester.pump();
+
+    expect(result.events, ['vote']);
+  });
+
+  testWidgets('the handle stops taking taps once a winner is out', (
+    tester,
+  ) async {
+    // The reveal belongs to the result, and the pair is about to be replaced.
+    // The tap falls through to the card, where the page drops it — a decided
+    // matchup takes no more input.
+    final result = await _pumpCard(tester, isWinner: true);
+
+    await tester.tap(find.byType(OwnerHandleChip), warnIfMissed: false);
+    await tester.pump();
+
+    expect(result.events, ['vote']);
   });
 
   testWidgets('a missing owner handle still shows the win count', (

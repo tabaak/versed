@@ -17,6 +17,7 @@ class FitViewerDetails extends StatelessWidget {
     required this.isSharing,
     required this.onToggleSave,
     required this.onShare,
+    this.onOwnerTap,
     super.key,
   });
 
@@ -32,6 +33,10 @@ class FitViewerDetails extends StatelessWidget {
   final VoidCallback onToggleSave;
   final ValueChanged<Rect?> onShare;
 
+  /// Opens the owner's profile. Without one the handle is plain text — which
+  /// is what happens when there is nowhere for it to lead.
+  final VoidCallback? onOwnerTap;
+
   @override
   Widget build(BuildContext context) {
     final handle = showOwner ? fit.ownerHandle : null;
@@ -41,12 +46,7 @@ class FitViewerDetails extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (handle != null) ...[
-          Text(
-            handle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AppTextStyles.sectionTitle,
-          ),
+          FitViewerOwnerHandle(handle: handle, onTap: onOwnerTap),
           const SizedBox(height: 8),
         ],
         FitViewerStats(fit: fit),
@@ -78,6 +78,79 @@ class FitViewerDetails extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// The owner's handle, and the way through to their profile.
+///
+/// The chevron is the whole affordance: a handle that leads somewhere reads as
+/// a row you can follow, and one that does not stays the plain line it has
+/// always been. Nothing is tinted — the app has no link colour, and inventing
+/// one here would be the first decorative hue in it.
+class FitViewerOwnerHandle extends StatefulWidget {
+  const FitViewerOwnerHandle({required this.handle, this.onTap, super.key});
+
+  final String handle;
+  final VoidCallback? onTap;
+
+  @override
+  State<FitViewerOwnerHandle> createState() => _FitViewerOwnerHandleState();
+}
+
+class _FitViewerOwnerHandleState extends State<FitViewerOwnerHandle> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (widget.onTap != null && _pressed != value) {
+      setState(() => _pressed = value);
+    }
+  }
+
+  void _handleTap() {
+    HapticFeedback.selectionClick();
+    widget.onTap!();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final label = Text(
+      widget.handle,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: AppTextStyles.sectionTitle,
+    );
+
+    if (widget.onTap == null) return label;
+
+    return Semantics(
+      button: true,
+      label: "Open ${widget.handle}'s profile",
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => _setPressed(true),
+        onTapUp: (_) => _setPressed(false),
+        onTapCancel: () => _setPressed(false),
+        onTap: _handleTap,
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOut,
+          opacity: _pressed ? 0.6 : 1,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(child: label),
+              const SizedBox(width: 4),
+              const Icon(
+                CupertinoIcons.chevron_forward,
+                size: 15,
+                color: AppColors.textSecondary,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -73,6 +73,7 @@ class MatchupBoard extends StatelessWidget {
     required this.onTapDown,
     required this.onLongPress,
     required this.onToggleSave,
+    required this.onOwnerTap,
     super.key,
   });
 
@@ -83,6 +84,7 @@ class MatchupBoard extends StatelessWidget {
   final void Function(VersusSide side, Offset globalPosition) onTapDown;
   final ValueChanged<VersusSide> onLongPress;
   final ValueChanged<VersusSide> onToggleSave;
+  final ValueChanged<VersusSide> onOwnerTap;
 
   @override
   Widget build(BuildContext context) {
@@ -117,6 +119,7 @@ class MatchupBoard extends StatelessWidget {
                 onTapDown(VersusSide.left, globalPosition),
             onLongPress: () => onLongPress(VersusSide.left),
             onToggleSave: () => onToggleSave(VersusSide.left),
+            onOwnerTap: () => onOwnerTap(VersusSide.left),
           ),
         );
         final rightCard = Positioned(
@@ -142,6 +145,7 @@ class MatchupBoard extends StatelessWidget {
                 onTapDown(VersusSide.right, globalPosition),
             onLongPress: () => onLongPress(VersusSide.right),
             onToggleSave: () => onToggleSave(VersusSide.right),
+            onOwnerTap: () => onOwnerTap(VersusSide.right),
           ),
         );
 

@@ -101,12 +101,8 @@ final _pngBytes = base64Decode(
   'hQGAhKmMIQAAAABJRU5ErkJggg==',
 );
 
-PickedFit _picked() => PickedFit(
-  bytes: _pngBytes,
-  fileExtension: 'png',
-  width: 1,
-  height: 1,
-);
+PickedFit _picked() =>
+    PickedFit(bytes: _pngBytes, fileExtension: 'png', width: 1, height: 1);
 
 /// A container with the profile loaded, as the profile tab would have it.
 ///
@@ -177,11 +173,7 @@ void main() {
 
     final failure = await container
         .read(profileControllerProvider.notifier)
-        .updateProfile(
-          username: 'ada',
-          displayName: 'Ada',
-          avatar: _picked(),
-        );
+        .updateProfile(username: 'ada', displayName: 'Ada', avatar: _picked());
 
     expect(failure, isNull);
     expect(service.uploadedBytes, _pngBytes);
@@ -202,11 +194,7 @@ void main() {
 
     final failure = await container
         .read(profileControllerProvider.notifier)
-        .updateProfile(
-          username: 'ada',
-          displayName: 'Ada',
-          removeAvatar: true,
-        );
+        .updateProfile(username: 'ada', displayName: 'Ada', removeAvatar: true);
 
     expect(failure, isNull);
     expect(service.avatarUrl, isNull);

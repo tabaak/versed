@@ -92,6 +92,7 @@ Future<_FakeMyFits> _openViewer(
   required bool isOwn,
   List<Fit> saved = const [],
   void Function(String fitId, FitReportReason reason)? onReport,
+  VoidCallback? onOwnerTap,
 }) async {
   final myFits = _FakeMyFits([fit]);
 
@@ -115,6 +116,7 @@ Future<_FakeMyFits> _openViewer(
                   fit: fit,
                   heroTag: 'tile-${fit.id}',
                   isOwn: isOwn,
+                  onOwnerTap: onOwnerTap,
                 ),
                 child: const Text('open'),
               ),
@@ -165,6 +167,28 @@ void main() {
     await _openViewer(tester, fit: _savedFit, isOwn: false);
 
     expect(find.text('@nova'), findsOneWidget);
+  });
+
+  testWidgets('tapping the handle opens the owner', (tester) async {
+    var opened = 0;
+    await _openViewer(
+      tester,
+      fit: _savedFit,
+      isOwn: false,
+      onOwnerTap: () => opened++,
+    );
+
+    await tester.tap(find.bySemanticsLabel("Open @nova's profile"));
+    await tester.pumpAndSettle();
+
+    expect(opened, 1);
+  });
+
+  testWidgets('the handle is inert with nowhere to lead', (tester) async {
+    await _openViewer(tester, fit: _savedFit, isOwn: false);
+
+    expect(find.text('@nova'), findsOneWidget);
+    expect(find.bySemanticsLabel("Open @nova's profile"), findsNothing);
   });
 
   testWidgets('offers to save a fit that is not saved yet', (tester) async {

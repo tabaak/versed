@@ -57,10 +57,8 @@ class ProfileAvatar extends StatelessWidget {
           width: size,
           height: size,
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => _Monogram(
-            initial: _initial,
-            size: size,
-          ),
+          errorBuilder: (context, error, stackTrace) =>
+              _Monogram(initial: _initial, size: size),
         ),
         _ => _Monogram(initial: _initial, size: size),
       },

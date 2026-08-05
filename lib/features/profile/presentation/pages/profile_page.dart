@@ -20,6 +20,7 @@ import '../widgets/profile_fits_section.dart';
 import '../widgets/profile_header.dart';
 import '../widgets/profile_stats_row.dart';
 import 'edit_profile_page.dart';
+import 'public_profile_page.dart';
 import 'settings_page.dart';
 
 /// The user's profile: identity, battle record, and fits. Settings live one
@@ -68,7 +69,17 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       return;
     }
 
-    FitViewerPage.open(context, fit: fit, heroTag: heroTag, isOwn: false);
+    FitViewerPage.open(
+      context,
+      fit: fit,
+      heroTag: heroTag,
+      isOwn: false,
+      onOwnerTap: () => PublicProfilePage.open(
+        context,
+        userId: fit.ownerId,
+        handle: fit.ownerHandle,
+      ),
+    );
   }
 
   Future<void> _retiredSavedFitOptions(Fit fit) async {

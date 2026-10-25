@@ -1,4 +1,30 @@
-# VERSED — Style, Compared. 👟👕
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/versed-logo-dark.svg">
+    <img src="docs/brand/versed-logo.svg" alt="VERSED" height="72">
+  </picture>
+</p>
+
+<p align="center">
+  <b>Style, compared.</b><br>
+  Two outfits, one double-tap. A head-to-head outfit battle app for iOS and Android.
+</p>
+
+<p align="center">
+  <a href="#-screenshots"><img alt="Platform: iOS and Android" src="https://img.shields.io/badge/platform-iOS%20%C2%B7%20Android-0A0A0A?style=for-the-badge"></a>
+  <a href="DESIGN.md"><img alt="Design: DESIGN.md" src="https://img.shields.io/badge/design-DESIGN.md-333333?style=for-the-badge"></a>
+</p>
+
+<p align="center">
+  <img alt="Flutter" src="https://img.shields.io/badge/Flutter-02569B?logo=flutter&logoColor=white">
+  <img alt="Dart" src="https://img.shields.io/badge/Dart-0175C2?logo=dart&logoColor=white">
+  <img alt="Riverpod" src="https://img.shields.io/badge/Riverpod-3-0A0A0A">
+  <img alt="Supabase" src="https://img.shields.io/badge/Supabase-3FCF8E?logo=supabase&logoColor=white">
+  <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white">
+  <img alt="Google Sign-In" src="https://img.shields.io/badge/Google%20Sign--In-4285F4?logo=google&logoColor=white">
+  <img alt="iOS" src="https://img.shields.io/badge/iOS-000000?logo=apple&logoColor=white">
+  <img alt="Android" src="https://img.shields.io/badge/Android-3DDC84?logo=android&logoColor=black">
+</p>
 
 A Flutter app for head-to-head outfit battles and curation. State-managed with Riverpod, and powered by Supabase for auth, Postgres, and media storage. Votes and matchmaking run through `security definer` database functions rather than Realtime subscriptions — the arena keeps its own prefetched queue instead of listening for pushes.
 
